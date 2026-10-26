@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 0,
+  "revision": 7,
+  "createdAtUnix": 1700000000,
+  "lastSavedAtUnix": 1700000100,
+  "cash": 975,
+  "incomeRemainder": 0.25,
+  "registered": {
+    "toaster": { "status": "Available", "registeredAt": 1700000001, "recoveryJobsDone": 0 },
+    "gold_toilet": { "status": "Missing", "registeredAt": 1700000002, "missingOperationId": "legacy-raid-1", "recoveryJobsDone": 2 }
+  },
+  "displaySlots": { "protected": "toaster", "exposed_01": "gold_toilet" },
+  "accreditation": 1,
+  "lifetime": { "npcDeliveries": 6, "pvpDeliveries": 1, "recoveryParcels": 2, "distinctRegistered": 2, "totalCashEarned": 1400 },
+  "tutorialStep": 9,
+  "beginnerActiveSeconds": 600,
+  "settings": { "masterVolume": 0.8, "musicVolume": 0.5, "effectsVolume": 1, "reduceMotion": true, "lowEffects": false },
+  "cosmetics": { "wall_palette": true },
+  "raidCycle": { "phase": "Protected", "remainingSeconds": 42 }
+}

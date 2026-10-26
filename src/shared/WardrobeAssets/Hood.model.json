@@ -1,0 +1,13 @@
+{
+  "ClassName": "MeshPart",
+  "Properties": {
+    "MeshId": "rbxassetid://81252403874038",
+    "Size": [1.43778, 1.51384, 1.5599],
+    "Color": [0.118, 0.216, 0.2],
+    "Material": "Fabric",
+    "CanCollide": false,
+    "CanTouch": false,
+    "CanQuery": false,
+    "Massless": true
+  }
+}

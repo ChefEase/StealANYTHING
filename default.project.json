@@ -1,0 +1,76 @@
+{
+  "name": "Steal Anything",
+  "servePlaceIds": [0, 94309819487664],
+  "tree": {
+    "$className": "DataModel",
+    "Lighting": {
+      "$className": "Lighting",
+      "$ignoreUnknownInstances": true,
+      "$properties": {
+        "ClockTime": 17.85,
+        "Brightness": 2.2,
+        "Ambient": [0.412, 0.427, 0.467],
+        "OutdoorAmbient": [0.486, 0.529, 0.58],
+        "GlobalShadows": true
+      }
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true
+    },
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": false,
+      "Network": {
+        "$className": "Folder",
+        "BeginPickup": { "$className": "RemoteEvent" },
+        "CancelPickup": { "$className": "RemoteEvent" },
+        "DeliverCarry": { "$className": "RemoteEvent" },
+        "DropCarry": { "$className": "RemoteEvent" },
+        "StartTutorialReplay": { "$className": "RemoteEvent" },
+        "Feedback": { "$className": "RemoteEvent" }
+      },
+      "Shared": {
+        "$className": "Folder",
+        "$path": "src/shared"
+      },
+      "VisualAssets": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": false,
+      "MatchShared": {
+        "$className": "Folder",
+        "$path": "src/matchShared"
+      },
+      "Server": {
+        "$className": "Folder",
+        "$path": "src/server"
+      }
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "Assets": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+        "$path": "src/serverStorage"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": false,
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$ignoreUnknownInstances": false,
+        "Client": {
+          "$className": "Folder",
+          "$path": "src/client"
+        }
+      }
+    }
+  }
+}

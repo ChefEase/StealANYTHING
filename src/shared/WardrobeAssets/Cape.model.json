@@ -1,0 +1,23 @@
+{
+  "ClassName": "Part",
+  "Properties": {
+    "Size": [3, 3.5, 3],
+    "Color": [0.255, 0.141, 0.361],
+    "Material": "Fabric",
+    "CanCollide": false,
+    "CanTouch": false,
+    "CanQuery": false,
+    "Massless": true
+  },
+  "Children": [
+    {
+      "Name": "CapeMesh",
+      "ClassName": "SpecialMesh",
+      "Properties": {
+        "MeshType": "FileMesh",
+        "MeshId": "rbxassetid://4698721218",
+        "Scale": [1, 1, 1]
+      }
+    }
+  ]
+}

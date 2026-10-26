@@ -1,0 +1,42 @@
+{
+  "name": "STEAL ANYTHING - Cinematic Backlot",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "Baseplate": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "Size": [512, 1, 512],
+          "Position": [0, -0.5, 0]
+        }
+      }
+    },
+    "ReplicatedStorage": { "$className": "ReplicatedStorage" },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "BuildStealAnythingCinematic": {
+        "$path": "cinematic/BuildCinematic.server.luau"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "CinematicConfig": {
+          "$path": "cinematic/CinematicConfig.luau"
+        },
+        "CinematicRunClip": {
+          "$path": "cinematic/CinematicRunClip.luau"
+        },
+        "CinematicWalkClip": {
+          "$path": "cinematic/CinematicWalkClip.luau"
+        },
+        "CinematicPlayer": {
+          "$path": "cinematic/CinematicPlayer.client.luau"
+        }
+      }
+    }
+  }
+}

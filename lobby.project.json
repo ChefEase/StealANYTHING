@@ -1,0 +1,29 @@
+{
+  "name": "Steal Anything Lobby",
+  "servePlaceIds": [105126787891032],
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "MatchStatus": { "$className": "RemoteEvent" },
+      "MatchControl": { "$className": "RemoteEvent" },
+      "Shared": { "$className": "Folder", "$path": "src/shared" }
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "LobbyAssets": { "$path": "assets/lobby/LobbyAssets.rbxm" }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "MatchShared": { "$className": "Folder", "$path": "src/matchShared" },
+      "Lobby": { "$className": "Folder", "$path": "src/lobby" }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$path": "src/lobbyClient"
+      }
+    }
+  }
+}

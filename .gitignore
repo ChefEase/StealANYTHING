@@ -1,0 +1,11 @@
+# Local Roblox builds and editor files
+*.rbxl
+*.rbxlx
+.vscode/
+.idea/
+
+# Local tooling output
+tools/
+build/
+rojo.exe
+*.log

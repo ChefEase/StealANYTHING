@@ -1,0 +1,7 @@
+# Post-Task-12 carry shuttle correction — 22 October 2026
+
+The depot return pad, district shuttle stops, museum dispatch prompts, ride button, and shared warp effect previously rejected `CurrentCarryItem`. A player holding the tutorial toaster therefore could not use the return pad to get back to their assigned museum.
+
+These server-approved travel paths now accept an active carry. `CarryService` samples the route before a warp, rejects an already invalid run, then records the warp's horizontal distance and equivalent travel-time credit separately from walked distance. The normal speed check still applies to walking. A direct, unapproved character teleport remains an invalid delivery route. Unknown carry types without a registered carry handler remain blocked by the shared warp effect.
+
+In the open museum Studio place, a practice toaster was picked up and carried through the depot return pad to the assigned museum; delivery completed. A second run used the district shuttle to the original museum and back, the return pad, the ride button back to the depot, and the return pad again; delivery completed. A direct server `PivotTo` from the depot to the receiving zone was rejected and did not complete a delivery. No saved collection or rewards changed because all three checks used tutorial replay. `rojo.exe build default.project.json` passed. The four changed modules were applied to the open Studio Edit place and verified there after Play stopped. The place still needs its normal Studio save/publish step for a persistent live update.

@@ -1,0 +1,43 @@
+-- Steal Anything / isolated 24-second vertical trailer configuration.
+-- Paste Roblox audio IDs into Sounds below. Empty IDs are intentionally silent.
+-- time/stopTime are seconds on the 24-second film; startOffset is seconds
+-- into the uploaded audio file (useful when only part of a long file is wanted).
+return {
+    Duration = 24,
+    Autoplay = false,
+    ShowCropGuide = true,
+    Fov = 44,
+    StartTime = 0,
+    StageOrigin = Vector3.new(0, 40, 0),
+    PaintingDecalName = "MonaLisaArt",
+    Sounds = {
+        OpeningMusic = { id = "rbxassetid://106084839116328", volume = 0.4, time = 0, stopTime = 1.18, brakeStart = 1.06, brakeMinSpeed = 0.32, woodDuck = 0.45 },
+        FrameScrape = { id = "rbxassetid://9120930404", volume = 3.0, time = 0.55, stopTime = 1.15, startOffset = 0.62 },
+        SwitchClick = { id = "rbxassetid://103744291353107", volume = 5.0, time = 1.15, stopTime = 1.55 },
+        MusicStop = { id = "rbxassetid://119055173837732", volume = 0.5, time = 1.18, stopTime = 1.55 },
+        Alarm = { id = "", volume = 0.45, time = 2.03, stopTime = 7.0 },
+        NervousBreath = { id = "", volume = 0.55, time = 3.1, stopTime = 3.9 },
+        OwnerGrunt = { id = "", volume = 0.6, time = 4.05, stopTime = 4.65 },
+        ShoeSqueak = { id = "", volume = 0.55, time = 4.3, stopTime = 4.7 },
+        MissedGrab = { id = "", volume = 0.7, time = 4.72, stopTime = 5.1 },
+        DodgeWhoosh = { id = "", volume = 0.55, time = 5.18, stopTime = 5.55 },
+        OfficerBrake = { id = "", volume = 0.55, time = 5.42, stopTime = 5.85 },
+        ChaseMusic = { id = "rbxassetid://106084839116328", volume = 0.5, time = 4.16, stopTime = 21 },
+        Footsteps = { id = "", volume = 0.4, time = 5.0, stopTime = 13.1 },
+        Bonk = { id = "", volume = 0.85, time = 7.46, stopTime = 7.72, startOffset = 0 },
+        Oof = { id = "", volume = 0.6, time = 7.56, stopTime = 7.95 },
+        SideScrape = { id = "", volume = 0.5, time = 8.35, stopTime = 8.85, startOffset = 0 },
+        Huffs = { id = "", volume = 0.45, time = 11.6, stopTime = 13.1 },
+        FastFootsteps = { id = "", volume = 0.5, time = 13.1, stopTime = 16.5 },
+        BarrierSlam = { id = "", volume = 0.8, time = 16.25, stopTime = 16.75 },
+        BarrierRattle = { id = "", volume = 0.55, time = 17.10, stopTime = 17.28 },
+        Knock1 = { id = "", volume = 0.75, time = 17.30, stopTime = 17.48 },
+        Knock2 = { id = "", volume = 0.75, time = 17.52, stopTime = 17.70 },
+        Knock3 = { id = "", volume = 0.75, time = 17.74, stopTime = 17.95 },
+        FrameShuffle = { id = "", volume = 0.55, time = 18.68, stopTime = 19.15 },
+        ComicAccent = { id = "", volume = 0.6, time = 19.22, stopTime = 19.75 },
+        FinalKnock = { id = "", volume = 0.8, time = 20.76, stopTime = 21.0 },
+        MusicFinish = { id = "", volume = 0.7, time = 21.02, stopTime = 23.2 },
+        AlarmChirp = { id = "", volume = 0.45, time = 23.2, stopTime = 23.8 },
+    },
+}
