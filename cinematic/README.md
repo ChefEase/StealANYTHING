@@ -31,15 +31,16 @@ before closing it. The standalone `.rbxl` above is already built on disk.
 In Studio, press **Play**. The on-screen `PLAY`, `STOP`, `RESTART`, `9:16 GUIDE`,
 and `NEXT SHOT` controls appear. Starting playback with `PLAY`, `RESTART`, or
 `NEXT SHOT` automatically hides the controls and crop guide. The final title
-stays on screen until `X` stops playback and restores the controls.
+fades to black with the last alarm chirp. The black end frame stays on screen
+until `X` stops playback and restores the controls.
 
 - `P` or `RESTART`: play from 0 seconds.
 - `X` or `STOP`: stop and restore camera, lighting, avatar visibility, prop and
   character poses, barrier, sounds, and title.
 - `N` or `NEXT SHOT`: play from the next camera cut.
 - `1` through `9`: play from that shot's start.
-- Starting within a music or alarm interval also starts that cue at the matching
-  position, so shot previews have their intended score.
+- Starting within an active loop also starts that cue at the matching position,
+  so shot previews have their intended sound.
 - `H`: manually hide or show the control bar.
 - `9:16 GUIDE`: toggle the centered crop outline. Turn it off for recording.
 - Exact frozen preview through the Client Command Bar:
@@ -51,7 +52,9 @@ are in `StarterPlayer.StarterPlayerScripts.CinematicConfig` (source:
 `cinematic/CinematicConfig.luau`). Paste uploaded Roblox IDs as
 `rbxassetid://123456789` into each `Sounds.<name>.id`. Empty IDs stay silent.
 The runtime creates named `SoundService.CinematicAudio` instances for those slots.
-Music and alarm loop during their assigned story intervals.
+Music, alarm, footsteps, and huffs loop during their assigned story intervals.
+The huff cue uses a quieter overlapping copy of the same selected clip to fill
+the pauses at its loop boundary.
 Each cue's `time` and `stopTime` are positions in the 24-second film. An optional
 `startOffset` selects a position inside a longer uploaded audio file. The wood
 clip plays briefly as the frame lifts free of the wall, then stops at 1.15.
@@ -59,16 +62,19 @@ It starts 0.62 seconds into the uploaded file, while the music briefly ducks
 to let it through. The doorway scrape and impact slots are silent now that
 the frame clears the widened opening. The opening track
 slows from 1.06 to 1.18 seconds, then stops, and resumes as chase music at 4.16.
+The chase music continues at its original volume through the title and fades
+over the last 0.25 seconds.
+The title fades to black from 23.20 to 23.75 as the final chirp plays.
 The script editor
 may hold a newer text buffer than the `Source` property; update the open script
 in Studio before testing changes.
 
-## Missing audio
+## Audio cues
 
-`OpeningMusic`, `FrameScrape`, `SwitchClick`, `MusicStop`, and `ChaseMusic`
-have IDs assigned; the
-other slots are currently empty. `MusicStop` is optional because the opening
-track already has a brief pitch drop before its cut.
+The Studio-assigned sound IDs are mirrored in `CinematicConfig.luau`.
+`SideScrape` remains silent because the widened doorway clears the frame.
+`MusicStop` is optional because the opening track already has a brief pitch
+drop before its cut.
 
 | Time (s) | Config slot | Suggested audio |
 | ---: | --- | --- |
@@ -77,9 +83,10 @@ track already has a brief pitch drop before its cut.
 | 1.15 | SwitchClick | Hidden alarm switch click |
 | 1.18 | MusicStop | Assigned accent after the pitch drop |
 | 2.03 | Alarm | Alarm loop, stops at 7.00 |
+| 2.08 | OfficerFootsteps | Owner's approach before entering the gallery; reuses the existing footsteps clip, stops at 3.80 |
 | 3.10 | NervousBreath | Thief gasp/breath |
 | 4.05 | OwnerGrunt | Angry grunt |
-| 4.16 | ChaseMusic | Same track as intro, restarts for chase; stops at 21.00 |
+| 4.16 | ChaseMusic | Same track as intro, continues through title; fades from 23.75 to 24.00 |
 | 4.30 | ShoeSqueak | Frantic first step |
 | 4.72 | MissedGrab | Owner's failed grab |
 | 5.00 | Footsteps | Running footsteps loop, stops at 13.10 |
@@ -88,9 +95,9 @@ track already has a brief pitch drop before its cut.
 | 7.46 | Bonk | Reserved for a visible wooden impact; currently silent |
 | 7.56 | Oof | Thief impact reaction |
 | 8.35 | SideScrape | Silent while the widened doorway clears the frame |
-| 11.60 | Huffs | Breathless huffs |
+| 8.35 | Huffs | Original huff clip, repeated continuously from the first doorway through the end of the home doorway at 16.90 |
 | 13.10 | FastFootsteps | Faster steps loop, stops at 16.50 |
-| 16.25 | BarrierSlam | Protection barrier activates, door-like impact |
+| 16.25 | BarrierSlam | Original protection barrier effect, raised in volume; ends at 17.05 before the owner hits it |
 | 17.10 | BarrierRattle | Owner hits the protection barrier |
 | 17.30 | Knock1 | Knock 1 |
 | 17.52 | Knock2 | Knock 2 |
@@ -99,7 +106,7 @@ track already has a brief pitch drop before its cut.
 | 19.22 | ComicAccent | Small accent as the thief thinks it is hidden |
 | 20.76 | FinalKnock | One last knock |
 | 21.02 | MusicFinish | Title finish |
-| 23.20 | AlarmChirp | Short final alarm chirp |
+| 23.20 | AlarmChirp | Short final alarm chirp; title fades to black |
 
 ## Recording
 

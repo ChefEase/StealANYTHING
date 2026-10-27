@@ -27,6 +27,7 @@ for _,m in ipairs({thief,owner,painting}) do
 end
 local saved={}
 local sounds={}
+local overlapSounds={}
 local cueFired={}
 local playing=false
 local frozenSecond=nil
@@ -81,13 +82,22 @@ local titleLine=Instance.new("Frame");titleLine.AnchorPoint=Vector2.new(.5,.5)
 titleLine.Position=UDim2.fromScale(.5,.535);titleLine.Size=UDim2.new(.27,0,0,2)
 titleLine.SizeConstraint=Enum.SizeConstraint.RelativeYY
 titleLine.BackgroundColor3=Color3.fromRGB(225,68,74);titleLine.BorderSizePixel=0;titleLine.Parent=title
+local titleOut=Instance.new("Frame")
+titleOut.Name="TitleFadeOut";titleOut.Size=UDim2.fromScale(1,1)
+titleOut.BackgroundColor3=Color3.new(0,0,0);titleOut.BackgroundTransparency=1
+titleOut.BorderSizePixel=0;titleOut.ZIndex=5;titleOut.Parent=title
 -- Sound slots are named in Config. Music IDs can be assigned there without touching the timeline.
 local audioFolder=Instance.new("Folder");audioFolder.Name="CinematicAudio";audioFolder.Parent=SoundService
 for n,spec in pairs(Config.Sounds) do
     local s=Instance.new("Sound");s.Name=n;s.Volume=spec.volume or .5;s.SoundId=spec.id or ""
     s.Looped=n=="OpeningMusic" or n=="Alarm" or n=="ChaseMusic"
-        or n=="Footsteps" or n=="FastFootsteps"
+        or n=="OfficerFootsteps" or n=="Footsteps" or n=="FastFootsteps" or n=="Huffs"
     s.Parent=audioFolder;sounds[n]=s
+    if spec.overlap then
+        local fill=s:Clone()
+        fill.Name=n.."Overlap";fill.Volume=s.Volume*.7;fill.Parent=audioFolder
+        overlapSounds[n]=fill
+    end
 end
 local function hideAvatar()
     local char=player.Character
@@ -630,7 +640,7 @@ local function setLighting(t)
     local stolenAlarm=t>=19.12 and t<21 and math.sin(t*24)>0
     backAlarm.Transparency=stolenAlarm and 0 or (t>=19.12 and t<21 and .25 or 1)
     backAlarmLight.Brightness=stolenAlarm and 6.0 or 0
-    local shieldOn=t>=16.35 and t<18
+    local shieldOn=t>=16.25 and t<18
     local shieldHit=seg(t,16.91,16.99)*(1-seg(t,17.09,17.32))
     barrier.Transparency=shieldOn and (.43-.27*shieldHit+.05*math.sin(t*25))
         or (t>=18 and t<21 and .76 or 1)
@@ -656,6 +666,7 @@ local function setTitle(t)
         titleTag.TextTransparency=1-seg(t,21.9,22.45)
         titleBig.Position=UDim2.fromScale(.5,.41+.04*(1-u))
         titleLine.BackgroundTransparency=1-seg(t,21.3,21.8)
+        titleOut.BackgroundTransparency=1-seg(t,23.2,23.75)
     end
 end
 local function frame(t)
@@ -690,6 +701,8 @@ local function frame(t)
             s.PlaybackSpeed=1-(1-(spec.brakeMinSpeed or .32))*blend*blend
             local duck=seg(t,.50,.58)*(1-seg(t,1.0,1.12))
             s.Volume=(spec.volume or .4)*(1-(spec.woodDuck or 0)*duck)
+        elseif n=="ChaseMusic" and spec.fadeStart then
+            sounds[n].Volume=(spec.volume or .5)*(1-seg(t,spec.fadeStart,spec.stopTime or Config.Duration))
         end
         if t>=spec.time and not cueFired[n] then
             cueFired[n]=true
@@ -701,6 +714,15 @@ local function frame(t)
         end
         local s=sounds[n]
         if spec.stopTime and t>=spec.stopTime and s and s.IsPlaying then s:Stop() end
+        local fill=overlapSounds[n]
+        if fill then
+            if t>=spec.time+spec.overlap and t<(spec.stopTime or Config.Duration)
+                and not fill.IsPlaying and fill.SoundId~="" then
+                fill.TimePosition=0
+                fill:Play()
+            end
+            if spec.stopTime and t>=spec.stopTime and fill.IsPlaying then fill:Stop() end
+        end
     end
 end
 local function stop()
@@ -715,6 +737,7 @@ local function stop()
     for n,s in pairs(sounds) do
         s:Stop();s.PlaybackSpeed=1;s.Volume=Config.Sounds[n].volume or .5
     end
+    for _,s in pairs(overlapSounds) do s:Stop() end
     for p,cf in pairs(base) do if p.Parent then p.CFrame=cf end end
     for _,actor in ipairs({thief,owner}) do
         for _,motor in ipairs(actor:GetDescendants()) do
@@ -768,14 +791,21 @@ local function start(from)
     for n,spec in pairs(Config.Sounds) do
         if spec.time<elapsed then
             cueFired[n]=true
-            -- Shot previews need the active score, even if its original cue has passed.
-            if (n=="OpeningMusic" or n=="ChaseMusic" or n=="Alarm")
-                and elapsed<(spec.stopTime or Config.Duration) then
-                local s=sounds[n]
+            -- Shot previews need any active loop, even if its original cue has passed.
+            local s=sounds[n]
+            if s.Looped and elapsed<(spec.stopTime or Config.Duration) then
                 if s and s.SoundId~="" then
-                    s.TimePosition=(spec.startOffset or 0)+(elapsed-spec.time)
+                    local position=(spec.startOffset or 0)+(elapsed-spec.time)
+                    s.TimePosition=s.IsLoaded and s.TimeLength>0 and position%s.TimeLength or position
                     s:Play()
                 end
+            end
+            local fill=overlapSounds[n]
+            if fill and elapsed>=spec.time+spec.overlap
+                and elapsed<(spec.stopTime or Config.Duration) and fill.SoundId~="" then
+                local position=elapsed-spec.time-spec.overlap
+                fill.TimePosition=fill.IsLoaded and fill.TimeLength>0 and position%fill.TimeLength or position
+                fill:Play()
             end
         end
     end
