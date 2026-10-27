@@ -1,0 +1,24 @@
+{
+  "ClassName": "Part",
+  "Properties": {
+    "Size": [1, 1, 1],
+    "Color": [0.639216, 0.635294, 0.647059],
+    "Material": "Plastic",
+    "CanCollide": false,
+    "CanTouch": false,
+    "CanQuery": false,
+    "Massless": true
+  },
+  "Children": [
+    {
+      "Name": "Mesh",
+      "ClassName": "SpecialMesh",
+      "Properties": {
+        "MeshType": "FileMesh",
+        "MeshId": "rbxassetid://20637493",
+        "TextureId": "rbxassetid://75739837",
+        "Scale": [1, 0.9, 1]
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SocialService = game:GetService("SocialService")
 local player = Players.LocalPlayer
-require(ReplicatedStorage.Shared.WardrobeUi).Start(player)
+require(ReplicatedStorage.Shared.WardrobeUi).Start(player, nil, false)
 local statusRemote = ReplicatedStorage:WaitForChild("MatchStatus") :: RemoteEvent
 local controlRemote = ReplicatedStorage:WaitForChild("MatchControl") :: RemoteEvent
 
@@ -17,12 +17,12 @@ local card = Instance.new("Frame")
 card.Name = "HeistControl"
 card.AnchorPoint = Vector2.new(1, 0)
 card.Position = UDim2.new(1, -12, 0, 8)
-card.Size = UDim2.fromOffset(236, 96)
+card.Size = UDim2.fromOffset(236, 135)
 card.BackgroundColor3 = Color3.fromRGB(21, 30, 35)
 card.BackgroundTransparency = 0.04
 card.Parent = screen
 local limit = Instance.new("UISizeConstraint")
-limit.MaxSize = Vector2.new(236, 142)
+limit.MaxSize = Vector2.new(236, 172)
 limit.Parent = card
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 9)
@@ -58,22 +58,6 @@ local titleSize = Instance.new("UITextSizeConstraint")
 titleSize.MaxTextSize = 14
 titleSize.MinTextSize = 10
 titleSize.Parent = title
-local staging = Instance.new("TextLabel")
-staging.Name = "StagingTag"
-staging.AnchorPoint = Vector2.new(1, 0)
-staging.Position = UDim2.new(1, -75, 0, 11)
-staging.Size = UDim2.fromOffset(73, 22)
-staging.BackgroundColor3 = Color3.fromRGB(14, 58, 42)
-staging.TextColor3 = Color3.fromRGB(32, 215, 116)
-staging.Font = Enum.Font.GothamBold
-staging.TextSize = 11
-staging.Text = "STAGING"
-staging.Visible = false
-staging.Parent = card
-local stageCorner = Instance.new("UICorner")
-stageCorner.CornerRadius = UDim.new(0, 11)
-stageCorner.Parent = staging
-
 local toggle = Instance.new("TextButton")
 toggle.Name = "Expand"
 toggle.AnchorPoint = Vector2.new(1, 0)
@@ -108,6 +92,22 @@ footerLine.Size = UDim2.new(1, -26, 0, 2)
 footerLine.BorderSizePixel = 0
 footerLine.BackgroundColor3 = Color3.fromRGB(60, 223, 207)
 footerLine.Parent = card
+local play = Instance.new("TextButton")
+play.Name = "Play"
+play.Position = UDim2.fromOffset(12, 100)
+play.Size = UDim2.new(1, -24, 0, 29)
+play.BackgroundColor3 = Color3.fromRGB(74, 235, 194)
+play.TextColor3 = Color3.fromRGB(8, 15, 14)
+play.Font = Enum.Font.GothamBold
+play.TextSize = 14
+play.Text = "PLAY / JOIN HEIST"
+play.Parent = card
+local playCorner = Instance.new("UICorner")
+playCorner.CornerRadius = UDim.new(0, 6)
+playCorner.Parent = play
+play.Activated:Connect(function()
+    if play.Active then controlRemote:FireServer("Start") end
+end)
 local footer = label("Footer", "MATCHMAKING ACTIVE", 14, 117,
     UDim.new(1, -28), 14, Color3.fromRGB(142, 187, 188),
     Enum.Font.GothamMedium, 10)
@@ -116,7 +116,7 @@ footer.Visible = false
 local function button(name: string, text: string, x: number): TextButton
     local item = Instance.new("TextButton")
     item.Name = name
-    item.Position = UDim2.new(x, 0, 0, 106)
+    item.Position = UDim2.new(x, 0, 0, 138)
     item.Size = UDim2.new(0.3, -4, 0, 28)
     item.BackgroundColor3 = Color3.fromRGB(48, 75, 79)
     item.TextColor3 = Color3.fromRGB(240, 247, 246)
@@ -156,7 +156,7 @@ end)
 local expanded = false
 toggle.Activated:Connect(function()
     expanded = not expanded
-    card.Size = UDim2.fromOffset(236, if expanded then 142 else 96)
+    card.Size = UDim2.fromOffset(236, if expanded then 172 else 135)
     toggle.Text = if expanded then "LESS" else "MORE"
     cancel.Visible = expanded
     retry.Visible = expanded
@@ -164,20 +164,30 @@ toggle.Activated:Connect(function()
 end)
 
 local function update(message: any, waiting: any)
+    local enabled = player:GetAttribute("MatchmakingEnabled") == true
+    local deploying = type(message) == "string" and string.find(message, "JOINING") ~= nil
+    play.Active = not enabled and not deploying
+    play.AutoButtonColor = play.Active
+    play.Text = if deploying then "JOINING MUSEUM..."
+        elseif enabled then "MATCHMAKING ACTIVE"
+        else "PLAY / JOIN HEIST"
+    play.BackgroundColor3 = if play.Active then Color3.fromRGB(74, 235, 194)
+        else Color3.fromRGB(48, 75, 79)
+    play.TextColor3 = if play.Active then Color3.fromRGB(8, 15, 14)
+        else Color3.fromRGB(240, 247, 246)
     if type(message) == "string" then
         status.Text = message
         local paused = string.find(message, "CANCELLED") ~= nil
-        local deploying = string.find(message, "JOINING") ~= nil
         local preview = string.find(message, "STUDIO PREVIEW") ~= nil
         local problem = string.find(message, "FAILED") ~= nil
             or string.find(message, "UNAVAILABLE") ~= nil
             or string.find(message, "NEEDS CONFIGURATION") ~= nil
-        footer.Text = if paused then "QUEUE PAUSED"
+        footer.Text = if not enabled then "READY WHEN YOU ARE"
             elseif deploying then "DEPLOYING TO HEIST"
             elseif preview then "STUDIO PREVIEW"
             elseif problem then "MATCHMAKING NEEDS RETRY"
             else "MATCHMAKING ACTIVE"
-        footerLine.BackgroundColor3 = if paused or problem
+        footerLine.BackgroundColor3 = if not enabled or paused or problem
             then Color3.fromRGB(217, 146, 81)
             else Color3.fromRGB(60, 223, 207)
     end
@@ -187,6 +197,9 @@ local function update(message: any, waiting: any)
 end
 statusRemote.OnClientEvent:Connect(update)
 player:GetAttributeChangedSignal("MatchStatus"):Connect(function()
+    update(player:GetAttribute("MatchStatus"), player:GetAttribute("WaitingCount"))
+end)
+player:GetAttributeChangedSignal("MatchmakingEnabled"):Connect(function()
     update(player:GetAttribute("MatchStatus"), player:GetAttribute("WaitingCount"))
 end)
 update(player:GetAttribute("MatchStatus"), player:GetAttribute("WaitingCount"))

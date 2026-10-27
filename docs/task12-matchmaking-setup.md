@@ -76,6 +76,7 @@ museum publish and four real clients before the behavior can be confirmed.
 
 ## Runtime behavior
 
+- Lobby entrants begin in staging and are not queued until they press **PLAY / JOIN HEIST**. They can use the wardrobe locker first. **LEAVE QUEUE** pauses matchmaking and returns them to staging. This 26 October change still needs a published-client check.
 - The lobby displays waiting count, status, Cancel, Retry, and Invite.
   When no game server exists, one player can start a reserved museum server.
   Studio Play shows a preview status without calling live matchmaking.

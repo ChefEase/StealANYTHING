@@ -20,7 +20,8 @@ local function inputName(prompt: ProximityPrompt, inputType: Enum.ProximityPromp
         return "TAP"
     end
     if inputType == Enum.ProximityPromptInputType.Gamepad then
-        return prompt.GamepadKeyCode.Name
+        local name = string.gsub(prompt.GamepadKeyCode.Name, "^Button", "")
+        return name
     end
     return prompt.KeyboardKeyCode.Name
 end
@@ -63,13 +64,13 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
     keyButton.Parent = root
 
     local keyCorner = Instance.new("UICorner")
-    keyCorner.CornerRadius = UDim.new(1, 0)
+    keyCorner.CornerRadius = UDim.new(0, 9)
     keyCorner.Parent = keyButton
 
     local keyOutline = Instance.new("UIStroke")
     keyOutline.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    keyOutline.Color = PROGRESS
-    keyOutline.Thickness = 3
+    keyOutline.Color = Theme.Text
+    keyOutline.Thickness = 2
     keyOutline.Transparency = 0
     keyOutline.Parent = keyButton
 
@@ -165,12 +166,12 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
     collapsedButton.BorderSizePixel = 0
     collapsedButton.Font = Enum.Font.GothamBold
     collapsedButton.RichText = true
-    collapsedButton.Text = "HOLD  <font color=\"#4AEBc2\">[ E ]</font>  TO INTERACT"
+    collapsedButton.Text = "OPEN INTERACTION DETAILS"
     collapsedButton.TextColor3 = Theme.Accent
     collapsedButton.TextSize = 11
-    collapsedButton.AutoButtonColor = false
-    collapsedButton.Selectable = false
-    collapsedButton.Visible = true
+    collapsedButton.AutoButtonColor = true
+    collapsedButton.Selectable = true
+    collapsedButton.Visible = false
     collapsedButton.Parent = parent
 
     local collapsedCorner = Instance.new("UICorner")
@@ -284,9 +285,10 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
         root.Visible = true
         collapsedButton.Visible = false
         keyButton.Text = if PhoneHudLayout.IsPhone(parent) then "TAP" else inputName(prompt, inputType)
+        local verb = if prompt.HoldDuration > 0 then "HOLD" else "PRESS"
         collapsedButton.Text = if PhoneHudLayout.IsPhone(parent)
-            then "HOLD  <font color=\"#4AEBc2\">[ TAP ]</font>  TO INTERACT"
-            else "HOLD  <font color=\"#4AEBc2\">[ " .. inputName(prompt, inputType) .. " ]</font>  TO INTERACT"
+            then "TAP TO OPEN DETAILS"
+            else verb .. " <font color=\"#4AEBc2\">[ " .. inputName(prompt, inputType) .. " ]</font>  · OPEN DETAILS"
         holdText.Text = if prompt.HoldDuration > 0 then "HOLD" else "PRESS"
         action.Text = string.upper(if prompt.ActionText ~= "" then prompt.ActionText else "INTERACT")
         object.Text = if prompt.ObjectText ~= "" then prompt.ObjectText else ""
@@ -366,8 +368,8 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
         collapsedButton.Visible = false
         keyButton.Text = if PhoneHudLayout.IsPhone(parent) then "TAP" else "E"
         collapsedButton.Text = if PhoneHudLayout.IsPhone(parent)
-            then "<font color=\"#4AEBc2\">[ TAP ]</font>  TO INTERACT"
-            else "<font color=\"#4AEBc2\">[ E ]</font>  TO INTERACT"
+            then "TAP TO OPEN DETAILS"
+            else "PRESS <font color=\"#4AEBc2\">[ E ]</font> · OPEN DETAILS"
         holdText.Text = "PRESS"
         action.Text = string.upper(if type(prompt.text) == "string" then prompt.text else "INTERACT")
         object.Text = if type(prompt.objectText) == "string" then prompt.objectText else ""
@@ -433,8 +435,15 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
     end, false, Enum.KeyCode.E, Enum.KeyCode.ButtonX)
 
     collapseButton.Activated:Connect(function()
+        if currentPrompt == nil and currentRemoteAction == nil then return end
         root.Visible = false
         collapsedButton.Visible = true
+    end)
+
+    collapsedButton.Activated:Connect(function()
+        if currentPrompt == nil and currentRemoteAction == nil then return end
+        collapsedButton.Visible = false
+        root.Visible = true
     end)
 
     keyButton.InputEnded:Connect(function(input)

@@ -489,23 +489,23 @@ local function mask(character: Model, folder: Folder, id: string)
     local head = character:FindFirstChild("Head")
     if head == nil or not head:IsA("BasePart") then return end
     local black = Color3.fromRGB(20, 24, 27)
-    local cloth = if id == "starter_mask" then Color3.fromRGB(33, 67, 69) else black
     if id == "starter_mask" then
-        local frontZ = -head.Size.Z * 0.56
-        for _, x in { -1, 1 } do
-            angular(character, folder, head, "BandanaTriangle",
-                Vector3.new(x * head.Size.X * 0.23, -head.Size.Y * 0.27, frontZ),
-                Vector3.new(0.11, head.Size.Y * 0.47, head.Size.X * 0.48),
-                cloth, Enum.Material.Fabric, CFrame.Angles(0, x * math.pi / 2, 0))
-            piece(character, folder, head, "BandanaTie",
-                Vector3.new(x * head.Size.X * 0.51, -head.Size.Y * 0.15, head.Size.Z * 0.08),
-                Vector3.new(0.09, head.Size.Y * 0.22, head.Size.Z * 0.3),
-                cloth, Enum.Material.Fabric, CFrame.Angles(0, 0, x * 0.28))
+        -- Fit the imported patterned bandana preserved in the museum place.
+        -- Keep the museum fit intact. The lobby hood needs the mesh narrower
+        -- and shallower, then moved forward so its patterned face still covers
+        -- the mouth without its tails showing through the back of the hood.
+        local inLobby = workspace:FindFirstChild("HeistLobby") ~= nil
+        local cloth = importedPart(folder, head, "Bandana", "Bandana",
+            CFrame.new(0, -head.Size.Y * (if inLobby then 0.28 else 0.15),
+                head.Size.Z * (if inLobby then -0.18 else 0.05)))
+        if cloth then
+            local mesh = cloth:FindFirstChildWhichIsA("SpecialMesh")
+            if mesh then
+                local width = if inLobby then 0.78 else 1.04
+                mesh.Scale = Vector3.new(head.Size.X * width, head.Size.Y * 0.94,
+                    head.Size.Z * (if inLobby then 0.72 else 1))
+            end
         end
-        piece(character, folder, head, "BandanaTopFold",
-            Vector3.new(0, -head.Size.Y * 0.08, frontZ - 0.04),
-            Vector3.new(head.Size.X * 0.96, 0.07, 0.07), Color3.fromRGB(81, 146, 135),
-            Enum.Material.Fabric)
     elseif id == "ski_mask" then
         -- Full balaclava silhouette. The two eye openings make it distinct from the free bandana.
         local shell = fitted(character, folder, "Head", "BalaclavaShell", CFrame.identity,
@@ -651,6 +651,18 @@ local function glow(character: Model, folder: Folder, masked: boolean)
     attachment.Name = "PhantomGlowAttachment"
     attachment.Parent = root
     attachment:SetAttribute("WardrobeVisual", true)
+    if character:IsDescendantOf(workspace) then
+        local auraSound = Instance.new("Sound")
+        auraSound.Name = "PhantomAuraSound"
+        auraSound.SoundId = "rbxassetid://113241850049300"
+        auraSound.Looped = true
+        auraSound.Volume = 0.16
+        auraSound.RollOffMode = Enum.RollOffMode.Inverse
+        auraSound.RollOffMinDistance = 5
+        auraSound.RollOffMaxDistance = 32
+        auraSound.Parent = attachment
+        auraSound:Play()
+    end
     local light = Instance.new("PointLight")
     light.Color = Color3.fromRGB(33, 163, 255)
     light.Brightness = 2

@@ -57,7 +57,7 @@ local function label(parent: Instance, name: string, caption: string,
     return item
 end
 
-function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?)
+function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener: boolean?)
     local action = ReplicatedStorage:WaitForChild("WardrobeAction") :: RemoteEvent
     local state = ReplicatedStorage:WaitForChild("WardrobeState") :: RemoteEvent
     local playerGui = player:WaitForChild("PlayerGui")
@@ -74,7 +74,7 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?)
     opener.AnchorPoint = Vector2.new(1, 1)
     opener.Position = UDim2.new(1, -12, 1, -100)
     opener.Size = UDim2.fromOffset(112, 38)
-    opener.Visible = menuHost == nil
+    opener.Visible = menuHost == nil and showOpener ~= false
 
     local shade = Instance.new("Frame")
     shade.Name = "Dimmer"
@@ -365,7 +365,7 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?)
     local function closePanel()
         if menuHost then return end
         shade.Visible = false
-        opener.Visible = true
+        opener.Visible = showOpener ~= false
         GuiService.SelectedObject = nil
     end
     RunService.RenderStepped:Connect(function(dt: number)

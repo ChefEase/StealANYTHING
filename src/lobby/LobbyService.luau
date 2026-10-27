@@ -22,6 +22,7 @@ local function tell(player: Player, status: string, count: number)
     if player.Parent == Players then
         player:SetAttribute("MatchStatus", status)
         player:SetAttribute("WaitingCount", count)
+        player:SetAttribute("MatchmakingEnabled", enabled[player.UserId] == true)
         remote:FireClient(player, status, count)
     end
 end
@@ -29,7 +30,13 @@ end
 local function queuePlayer(player: Player)
     if not enabled[player.UserId] then return false end
     if RunService:IsStudio() then
-        tell(player, "STUDIO PREVIEW - LIVE MATCHMAKING REQUIRES PUBLISHING", 1)
+        tell(player, "STUDIO PREVIEW - PLAY PRESSED; LIVE TELEPORT REQUIRES PUBLISHING", 1)
+        return false
+    end
+    if Config.LobbyPlaceId == 0 or Config.GamePlaceId == 0
+        or game.PlaceId ~= Config.LobbyPlaceId then
+        enabled[player.UserId] = false
+        tell(player, "LOBBY PLACE ID NEEDS CONFIGURATION", 0)
         return false
     end
     local join = player:GetJoinData()
@@ -117,9 +124,9 @@ local function teleportAssignedPlayers(state: any)
 end
 
 local function playerAdded(player: Player)
-    enabled[player.UserId] = true
+    enabled[player.UserId] = false
     if RunService:IsStudio() then
-        tell(player, "STUDIO PREVIEW - LIVE MATCHMAKING REQUIRES PUBLISHING", 1)
+        tell(player, "STUDIO PREVIEW - EXPLORE LOBBY, THEN PRESS PLAY", 0)
         return
     end
     if Config.LobbyPlaceId == 0 or Config.GamePlaceId == 0
@@ -136,7 +143,7 @@ local function playerAdded(player: Player)
         tell(player, "ENTRY FAILED: " .. data.admissionError .. " - RETRY", 0)
         return
     end
-    queuePlayer(player)
+    tell(player, "EXPLORE THE LOBBY - PRESS PLAY WHEN READY", 0)
 end
 
 function LobbyService.Start()
@@ -144,17 +151,31 @@ function LobbyService.Start()
     started = true
     remote = ReplicatedStorage:WaitForChild("MatchStatus") :: RemoteEvent
     local control = ReplicatedStorage:WaitForChild("MatchControl") :: RemoteEvent
+    local function beginMatchmaking(player: Player, retry: boolean)
+        if player.Parent ~= Players or teleporting[player.UserId] then return end
+        if not retry and enabled[player.UserId] then return end
+        enabled[player.UserId] = true
+        teleportFailures[player.UserId] = 0
+        if queuePlayer(player) then
+            tell(player, "FINDING A MUSEUM SERVER", 1)
+        end
+    end
     control.OnServerEvent:Connect(function(player: Player, action: any)
         if action == "Cancel" then
+            if teleporting[player.UserId] then return end
+            if not enabled[player.UserId] then return end
             enabled[player.UserId] = false
-            teleporting[player.UserId] = nil
             clearAssignment(player)
-            tell(player, "MATCHMAKING CANCELLED", 0)
-        elseif action == "Retry" and not teleporting[player.UserId] then
-            enabled[player.UserId] = true
-            teleportFailures[player.UserId] = 0
-            queuePlayer(player)
+            tell(player, "MATCHMAKING CANCELLED - PRESS PLAY WHEN READY", 0)
+        elseif (action == "Start" or action == "Retry") and not teleporting[player.UserId] then
+            beginMatchmaking(player, action == "Retry")
         end
+    end)
+    local lobby = workspace:WaitForChild("HeistLobby")
+    local vaultAnchor = lobby:WaitForChild("DeploymentPromptAnchor")
+    local vaultPrompt = vaultAnchor:WaitForChild("PlayHeistPrompt") :: ProximityPrompt
+    vaultPrompt.Triggered:Connect(function(player: Player)
+        beginMatchmaking(player, false)
     end)
     TeleportService.TeleportInitFailed:Connect(function(player, result, message, placeId, options)
         if placeId ~= Config.GamePlaceId or player.Parent ~= Players then return end
@@ -252,7 +273,9 @@ function LobbyService.Start()
                             .. readError)
                     end
                     for _, player in Players:GetPlayers() do
-                        tell(player, "MATCHMAKING TEMPORARILY UNAVAILABLE — RETRY", 0)
+                        if enabled[player.UserId] then
+                            tell(player, "MATCHMAKING TEMPORARILY UNAVAILABLE — RETRY", 0)
+                        end
                     end
                 end
             end

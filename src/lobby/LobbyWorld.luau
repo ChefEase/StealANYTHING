@@ -119,16 +119,75 @@ local function addLoungeSeats(model: Model)
     end
 end
 
+local function finishWardrobeDisplay(lobby: Model, display: Model)
+    local mannequin = display:FindFirstChild("StarterOutfitMannequin")
+    if mannequin and mannequin:IsA("Model") then
+        for _, visual in mannequin:GetDescendants() do
+            if visual:IsA("BasePart") then visual.CanCollide = true end
+        end
+        local hull = display:FindFirstChild("MannequinCollision")
+        if not hull or not hull:IsA("BasePart") then
+            hull = part(display, "MannequinCollision", Vector3.new(3.25, 5.8, 1.6),
+                Vector3.new(24, 3.7, 17.5), STEEL, Enum.Material.SmoothPlastic)
+        end
+        hull.CanCollide = true
+        hull.CanQuery = false
+        hull.Transparency = 1
+    end
+    local plinth = display:FindFirstChild("MannequinPlinth")
+    if plinth and plinth:IsA("BasePart") then plinth.CanCollide = true end
+    for _, name in { "MirrorFrame", "Mirror" } do
+        local surface = display:FindFirstChild(name)
+        if surface and surface:IsA("BasePart") then surface.CanCollide = true end
+    end
+    if not display:FindFirstChild("MirrorTitle") then
+        sign(display, "MirrorTitle", "FITTING MIRROR",
+            Vector3.new(4, 0.45, 0.12), Vector3.new(35.5, 9.2, 23.65),
+            Color3.fromRGB(232, 237, 235), Enum.NormalId.Front)
+    end
+    local oldSign = lobby:FindFirstChild("LockerSign")
+    local label = oldSign and oldSign:FindFirstChildOfClass("SurfaceGui")
+    local text = label and label:FindFirstChildOfClass("TextLabel")
+    if text then text.Text = "ROBBER WARDROBE\nTRY ON + EQUIP" end
+end
+
+local function addDeploymentPrompt(lobby: Model)
+    local anchor = lobby:FindFirstChild("DeploymentPromptAnchor")
+    if not anchor or not anchor:IsA("BasePart") then
+        anchor = part(lobby, "DeploymentPromptAnchor", Vector3.new(1, 1, 1),
+            Vector3.new(0, 4, -31.5), STEEL, Enum.Material.SmoothPlastic, false)
+    end
+    anchor.Transparency = 1
+    anchor.CanCollide = false
+    anchor.CanQuery = false
+    local prompt = anchor:FindFirstChild("PlayHeistPrompt")
+    if not prompt or not prompt:IsA("ProximityPrompt") then
+        prompt = Instance.new("ProximityPrompt")
+        prompt.Name = "PlayHeistPrompt"
+        prompt.Parent = anchor
+    end
+    prompt.ActionText = "Play / Join Heist"
+    prompt.ObjectText = "Deployment Vault"
+    prompt.KeyboardKeyCode = Enum.KeyCode.E
+    prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+    prompt.MaxActivationDistance = 12
+    prompt.RequiresLineOfSight = false
+end
+
 local function addWardrobeDisplay(lobby: Model)
-    if lobby:FindFirstChild("RobberWardrobeDisplay") then return end
+    local existing = lobby:FindFirstChild("RobberWardrobeDisplay")
+    if existing and existing:IsA("Model") then
+        finishWardrobeDisplay(lobby, existing)
+        return
+    end
     local display = Instance.new("Model")
     display.Name = "RobberWardrobeDisplay"
     display.Parent = lobby
     part(display, "MirrorFrame", Vector3.new(4.8, 8, 0.25),
-        Vector3.new(35.5, 5, 24), BRASS, Enum.Material.Metal, false)
+        Vector3.new(35.5, 5, 24), BRASS, Enum.Material.Metal)
     local mirror = part(display, "Mirror", Vector3.new(4.3, 7.5, 0.1),
         Vector3.new(35.5, 5, 23.82), Color3.fromRGB(125, 163, 171),
-        Enum.Material.Glass, false)
+        Enum.Material.Glass)
     mirror.Reflectance = 0.35
     part(display, "MannequinPlinth", Vector3.new(3.8, 0.6, 3.8),
         Vector3.new(24, 0.3, 17.5), STEEL, Enum.Material.Metal, false)
@@ -155,10 +214,7 @@ local function addWardrobeDisplay(lobby: Model)
         Vector3.new(24, 4, 20), STEEL, Enum.Material.SmoothPlastic, false)
     anchor.Transparency = 1
     anchor.CanQuery = false
-    local oldSign = lobby:FindFirstChild("LockerSign")
-    local label = oldSign and oldSign:FindFirstChildOfClass("SurfaceGui")
-    local text = label and label:FindFirstChildOfClass("TextLabel")
-    if text then text.Text = "ROBBER WARDROBE\nTRY ON + EQUIP" end
+    finishWardrobeDisplay(lobby, display)
 end
 
 local function configureLighting(model: Model)
@@ -189,6 +245,7 @@ function LobbyWorld.Build(): Model
         addLoungeSeats(existing)
         AssetPlacement.Apply(existing)
         addWardrobeDisplay(existing)
+        addDeploymentPrompt(existing)
         configureLighting(existing)
         return existing
     end
@@ -403,6 +460,7 @@ function LobbyWorld.Build(): Model
 
     AssetPlacement.Apply(model)
     addWardrobeDisplay(model)
+    addDeploymentPrompt(model)
     configureLighting(model)
     return model
 end

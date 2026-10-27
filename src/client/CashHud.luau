@@ -99,10 +99,35 @@ function CashHud.Create(parent: ScreenGui, player: Player)
     income.TextXAlignment = Enum.TextXAlignment.Left
     income.Parent = panel
 
+    local lastCash: number? = nil
+    local gainToken = 0
     local function render()
         local cash = player:GetAttribute("Cash")
         balance.Text = if type(cash) == "number" then formatCash(cash) else "$---"
         balance.TextColor3 = if type(cash) == "number" then CASH_GREEN else TEXT
+        if type(cash) == "number" then
+            if lastCash ~= nil and cash > lastCash then
+                gainToken += 1
+                local token = gainToken
+                caption.Text = "+" .. formatCash(cash - lastCash) .. " EARNED"
+                caption.TextColor3 = CASH_GREEN
+                task.delay(1.8, function()
+                    if token ~= gainToken then return end
+                    caption.Text = "CASH"
+                    caption.TextColor3 = MUTED
+                end)
+            elseif lastCash ~= nil and cash < lastCash then
+                gainToken += 1
+                caption.Text = "CASH"
+                caption.TextColor3 = MUTED
+            end
+            lastCash = cash
+        else
+            lastCash = nil
+            gainToken += 1
+            caption.Text = "CASH"
+            caption.TextColor3 = MUTED
+        end
         local rate = player:GetAttribute("IncomePerMinute")
         income.Text = if type(rate) == "number" and rate > 0
             then "+$" .. tostring(rate) .. (if PhoneHudLayout.IsPhone(parent) then "/MIN ACTIVE" else "/MIN WHILE HERE")
