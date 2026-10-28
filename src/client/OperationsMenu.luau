@@ -213,6 +213,15 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
     closeCorner.CornerRadius = UDim.new(0, 4)
     closeCorner.Parent = close
 
+    local returnToLobby = button("ReturnToLobby", panel, "BACK TO LOBBY")
+    returnToLobby.TextXAlignment = Enum.TextXAlignment.Center
+    returnToLobby.TextSize = 12
+    returnToLobby.BackgroundColor3 = Color3.fromRGB(28, 49, 41)
+    returnToLobby.ZIndex = 103
+    local returnCorner = Instance.new("UICorner")
+    returnCorner.CornerRadius = UDim.new(0, 4)
+    returnCorner.Parent = returnToLobby
+
     local sidebar = frame("Tabs", panel, Color3.fromRGB(11, 22, 18))
     sidebar.Position = UDim2.fromOffset(0, 80)
     sidebar.ZIndex = 102
@@ -624,8 +633,14 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
         close.Position = UDim2.new(1, -14, 0, if compact then 11 else 17)
         close.Size = UDim2.fromOffset(if touch then 44 else 36,
             if touch then 44 else 36)
+        returnToLobby.Position = UDim2.new(1, if width < 530 then -170 else -288,
+            0, if compact then 11 else 17)
+        returnToLobby.Size = UDim2.fromOffset(if width < 530 then 114 else 130,
+            if touch then 44 else 36)
+        returnToLobby.TextSize = if width < 530 then 10 else 12
         playerChip.Position = UDim2.new(1, -158, 0, if compact then 10 else 17)
         playerChip.Size = UDim2.fromOffset(96, 37)
+        playerChip.Visible = width >= 530
         local tabHeight = if compact then 44 else 50
         tutorialTab.Position = UDim2.fromOffset(7, if compact then 10 else 20)
         tutorialTab.Size = UDim2.new(1, -15, 0, tabHeight)
@@ -990,6 +1005,22 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
         setOpen(false)
     end)
     close.Activated:Connect(function() setOpen(false) end)
+    returnToLobby.Activated:Connect(function()
+        if not returnToLobby.Active then return end
+        returnToLobby.Active = false
+        returnToLobby.Text = "RETURNING..."
+        local network = ReplicatedStorage:WaitForChild("Network")
+        local request = network:WaitForChild("ReturnToLobby") :: RemoteEvent
+        request:FireServer()
+    end)
+    player:GetAttributeChangedSignal("LobbyReturnState"):Connect(function()
+        local state = player:GetAttribute("LobbyReturnState")
+        if state == "Teleporting" then return end
+        returnToLobby.Active = true
+        returnToLobby.Text = if state == "StudioPreview" then "LIVE GAME ONLY"
+            elseif state == "Failed" then "RETRY LOBBY"
+            else "BACK TO LOBBY"
+    end)
     toggle.Activated:Connect(function()
         setOpen(true)
     end)

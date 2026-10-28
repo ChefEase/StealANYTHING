@@ -6,6 +6,8 @@ local player = Players.LocalPlayer
 require(ReplicatedStorage.Shared.WardrobeUi).Start(player, nil, false)
 local statusRemote = ReplicatedStorage:WaitForChild("MatchStatus") :: RemoteEvent
 local controlRemote = ReplicatedStorage:WaitForChild("MatchControl") :: RemoteEvent
+local playPrompt = workspace:WaitForChild("HeistLobby")
+    :WaitForChild("DeploymentPromptAnchor"):WaitForChild("PlayHeistPrompt") :: ProximityPrompt
 
 local screen = Instance.new("ScreenGui")
 screen.Name = "MatchmakingLobby"
@@ -105,6 +107,11 @@ play.Parent = card
 local playCorner = Instance.new("UICorner")
 playCorner.CornerRadius = UDim.new(0, 6)
 playCorner.Parent = play
+local startRequested = false
+playPrompt.Triggered:Connect(function()
+    startRequested = true
+    playPrompt.Enabled = false
+end)
 play.Activated:Connect(function()
     if play.Active then controlRemote:FireServer("Start") end
 end)
@@ -166,6 +173,14 @@ end)
 local function update(message: any, waiting: any)
     local enabled = player:GetAttribute("MatchmakingEnabled") == true
     local deploying = type(message) == "string" and string.find(message, "JOINING") ~= nil
+    local problem = type(message) == "string" and (
+        string.find(message, "FAILED") ~= nil
+        or string.find(message, "UNAVAILABLE") ~= nil
+        or string.find(message, "NEEDS CONFIGURATION") ~= nil
+        or string.find(message, "STUDIO PREVIEW - PLAY PRESSED") ~= nil
+    )
+    if enabled or problem then startRequested = false end
+    playPrompt.Enabled = (not enabled and not startRequested) or problem
     play.Active = not enabled and not deploying
     play.AutoButtonColor = play.Active
     play.Text = if deploying then "JOINING MUSEUM..."
@@ -179,9 +194,6 @@ local function update(message: any, waiting: any)
         status.Text = message
         local paused = string.find(message, "CANCELLED") ~= nil
         local preview = string.find(message, "STUDIO PREVIEW") ~= nil
-        local problem = string.find(message, "FAILED") ~= nil
-            or string.find(message, "UNAVAILABLE") ~= nil
-            or string.find(message, "NEEDS CONFIGURATION") ~= nil
         footer.Text = if not enabled then "READY WHEN YOU ARE"
             elseif deploying then "DEPLOYING TO HEIST"
             elseif preview then "STUDIO PREVIEW"

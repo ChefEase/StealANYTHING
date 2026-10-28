@@ -4,6 +4,7 @@ local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local Catalog = require(script.Parent.WardrobeCatalog)
 local Appearance = require(script.Parent.WardrobeAppearance)
 
@@ -68,6 +69,7 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     screen.ResetOnSpawn = false
     screen.DisplayOrder = 30
     screen.IgnoreGuiInset = false
+    screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     screen.Parent = playerGui
 
     local opener = button(screen, "WardrobeButton", "WARDROBE", TEAL)
@@ -90,18 +92,20 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     panel.Position = UDim2.fromScale(0.5, 0.5)
     panel.Size = UDim2.new(0.94, 0, 0.9, 0)
     panel.BackgroundColor3 = INK
+    panel.ClipsDescendants = true
     panel.Parent = if menuHost then menuHost else shade
     rounded(panel, 12)
     local limit = Instance.new("UISizeConstraint")
     limit.MaxSize = Vector2.new(760, 580)
     limit.MinSize = Vector2.new(315, 310)
     limit.Parent = panel
+    local panelScale = Instance.new("UIScale")
+    panelScale.Parent = panel
     if menuHost then
         limit:Destroy()
         panel.AnchorPoint = Vector2.zero
         panel.Position = UDim2.fromOffset(0, 0)
         panel.Size = UDim2.new(1, 0, 0, math.max(480, menuHost.AbsoluteSize.Y))
-        panel.ClipsDescendants = true
         menuHost.ClipsDescendants = true
         menuHost.ScrollingDirection = Enum.ScrollingDirection.Y
         menuHost.ScrollBarThickness = 5
@@ -112,6 +116,15 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
         end
         menuHost:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeEmbedded)
         resizeEmbedded()
+    else
+        local function fitPanel()
+            local bounds = shade.AbsoluteSize
+            if bounds.X <= 16 or bounds.Y <= 16 then return end
+            panelScale.Scale = math.min(1, (bounds.X - 16) / 315,
+                (bounds.Y - 16) / 310)
+        end
+        shade:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitPanel)
+        fitPanel()
     end
     label(panel, "Heading", "ROBBER WARDROBE", UDim2.new(1, -115, 0, 30),
         UDim2.fromOffset(16, 9), 20).Font = Enum.Font.GothamBlack
@@ -122,19 +135,32 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     close.TextColor3 = WHITE
     close.Visible = menuHost == nil
 
+    local listBackground = Instance.new("Frame")
+    listBackground.Name = "ItemsBackground"
+    listBackground.Position = UDim2.new(0, 12, 0, 49)
+    listBackground.Size = UDim2.new(0.47, -12, 1, -102)
+    listBackground.BackgroundColor3 = PANEL
+    listBackground.BorderSizePixel = 0
+    listBackground.Parent = panel
+    rounded(listBackground, 8)
+    local listMask = Instance.new("Frame")
+    listMask.Name = "ItemsClip"
+    listMask.Position = UDim2.fromOffset(4, 4)
+    listMask.Size = UDim2.new(1, -8, 1, -8)
+    listMask.BackgroundTransparency = 1
+    listMask.ClipsDescendants = true
+    listMask.Parent = listBackground
     local list = Instance.new("ScrollingFrame")
     list.Name = "Items"
-    list.Position = UDim2.new(0, 12, 0, 49)
-    list.Size = UDim2.new(0.47, -12, 1, -102)
-    list.BackgroundColor3 = PANEL
+    list.Size = UDim2.fromScale(1, 1)
+    list.BackgroundTransparency = 1
     list.BorderSizePixel = 0
     list.ScrollBarThickness = 5
-    list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    list.ElasticBehavior = Enum.ElasticBehavior.Never
     list.CanvasSize = UDim2.fromOffset(0, 0)
     list.ScrollingDirection = Enum.ScrollingDirection.Y
     list.ClipsDescendants = true
-    list.Parent = panel
-    rounded(list, 8)
+    list.Parent = listMask
     local padding = Instance.new("UIPadding")
     padding.PaddingTop = UDim.new(0, 6)
     padding.PaddingBottom = UDim.new(0, 6)
@@ -146,7 +172,8 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = list
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        list.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 12)
+        list.CanvasSize = UDim2.fromOffset(0,
+            layout.AbsoluteContentSize.Y / panelScale.Scale + 12)
     end)
 
     local preview = Instance.new("ViewportFrame")
@@ -243,7 +270,7 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
         UDim2.new(0.52, -14, 0, 28), UDim2.new(0.48, 2, 1, -38), 11)
     feedback.TextColor3 = TEAL
     local function arrange()
-        local height = panel.AbsoluteSize.Y
+        local height = panel.AbsoluteSize.Y / panelScale.Scale
         local previewHeight = math.clamp(height - 270, 96, 300)
         preview.Size = UDim2.new(0.52, -14, 0, previewHeight)
         local belowPreview = 54 + previewHeight
@@ -263,6 +290,11 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     local record: any = { ready = false, owned = {}, loadout = {} }
     local selected = Catalog.DisplayItems[1]
     local rows: {[string]: TextButton} = {}
+    local selectionImage = Instance.new("Frame")
+    selectionImage.Name = "WardrobeSelectionImage"
+    selectionImage.Size = UDim2.fromScale(1, 1)
+    selectionImage.BackgroundTransparency = 1
+    selectionImage.Parent = screen
     local previewModel: Model? = nil
     local glowing = false
     local spinning = false
@@ -347,6 +379,17 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
         row.LayoutOrder = index
         row.Size = UDim2.new(1, 0, 0, 42)
         row.TextXAlignment = Enum.TextXAlignment.Left
+        row.SelectionImageObject = selectionImage
+        local focusMark = Instance.new("Frame")
+        focusMark.Name = "GamepadFocus"
+        focusMark.Position = UDim2.new(1, -7, 0, 5)
+        focusMark.Size = UDim2.new(0, 3, 1, -10)
+        focusMark.BackgroundColor3 = GOLD
+        focusMark.BorderSizePixel = 0
+        focusMark.Visible = false
+        focusMark.Parent = row
+        row.SelectionGained:Connect(function() focusMark.Visible = true end)
+        row.SelectionLost:Connect(function() focusMark.Visible = false end)
         rows[item.id] = row
         row.Activated:Connect(function()
             selected = item
@@ -359,7 +402,9 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
             opener.Visible = false
         end
         if not record.ready then action:FireServer("State") end
-        GuiService.SelectedObject = rows[selected.id]
+        if UserInputService:GetLastInputType().Name:match("^Gamepad") then
+            GuiService.SelectedObject = rows[selected.id]
+        end
         refresh()
     end
     local function closePanel()

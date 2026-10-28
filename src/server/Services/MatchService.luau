@@ -1,5 +1,6 @@
 --!strict
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 
@@ -16,6 +17,7 @@ local serverCode: string? = nil
 local admitted: {[number]: boolean} = {}
 local lobbyAttempts: {[number]: number} = {}
 local lobbyRedirectBusy: {[number]: boolean} = {}
+local lobbyReturnBusy: {[number]: boolean} = {}
 
 local function activeCount(): number
     local records = {}
@@ -163,9 +165,52 @@ function MatchService.Start()
         warn("[Steal Anything] Game place maximum must be "
             .. tostring(Config.MaximumPlayers) .. " in Creator Dashboard")
     end
+    local returnRemote = ReplicatedStorage:WaitForChild("Network")
+        :WaitForChild("ReturnToLobby") :: RemoteEvent
+    returnRemote.OnServerEvent:Connect(function(player: Player)
+        if player.Parent ~= Players or lobbyReturnBusy[player.UserId] then return end
+        player:SetAttribute("LobbyReturnState", "Teleporting")
+        if admitted[player.UserId] ~= true then
+            player:SetAttribute("LobbyReturnState", "Failed")
+            return
+        end
+        if RunService:IsStudio() then
+            player:SetAttribute("LobbyReturnState", "StudioPreview")
+            return
+        end
+        if Config.LobbyPlaceId <= 0 then
+            player:SetAttribute("LobbyReturnState", "Failed")
+            return
+        end
+        lobbyReturnBusy[player.UserId] = true
+        task.spawn(function()
+            local ok, err = pcall(function()
+                TeleportService:TeleportAsync(Config.LobbyPlaceId, { player })
+            end)
+            if not ok and player.Parent == Players then
+                warn("[Steal Anything] Return to lobby failed: " .. tostring(err))
+                lobbyReturnBusy[player.UserId] = nil
+                player:SetAttribute("LobbyReturnState", "Failed")
+            elseif ok then
+                task.delay(30, function()
+                    if player.Parent == Players and lobbyReturnBusy[player.UserId] then
+                        lobbyReturnBusy[player.UserId] = nil
+                        player:SetAttribute("LobbyReturnState", "Failed")
+                    end
+                end)
+            end
+        end)
+    end)
     Players.PlayerAdded:Connect(playerAdded)
     TeleportService.TeleportInitFailed:Connect(function(player, _, message, placeId)
         if placeId ~= Config.LobbyPlaceId or player.Parent ~= Players then return end
+        if lobbyReturnBusy[player.UserId] then
+            lobbyReturnBusy[player.UserId] = nil
+            player:SetAttribute("LobbyReturnState", "Failed")
+            warn("[Steal Anything] Return to lobby initialization failed: "
+                .. tostring(message))
+            return
+        end
         warn("[Steal Anything] Lobby teleport initialization failed: "
             .. tostring(message))
         if (lobbyAttempts[player.UserId] or 0) >= 3 then
@@ -178,6 +223,7 @@ function MatchService.Start()
         admitted[player.UserId] = nil
         lobbyAttempts[player.UserId] = nil
         lobbyRedirectBusy[player.UserId] = nil
+        lobbyReturnBusy[player.UserId] = nil
         if enabled and serverKey then
             Registry.Update(function(old)
                 return State.Leave(old, serverKey :: string, player.UserId,

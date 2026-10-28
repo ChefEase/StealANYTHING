@@ -28,6 +28,7 @@
         "DeliverCarry": { "$className": "RemoteEvent" },
         "DropCarry": { "$className": "RemoteEvent" },
         "StartTutorialReplay": { "$className": "RemoteEvent" },
+        "ReturnToLobby": { "$className": "RemoteEvent" },
         "Feedback": { "$className": "RemoteEvent" }
       },
       "Shared": {
