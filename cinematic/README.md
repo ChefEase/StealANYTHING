@@ -52,9 +52,9 @@ are in `StarterPlayer.StarterPlayerScripts.CinematicConfig` (source:
 `cinematic/CinematicConfig.luau`). Paste uploaded Roblox IDs as
 `rbxassetid://123456789` into each `Sounds.<name>.id`. Empty IDs stay silent.
 The runtime creates named `SoundService.CinematicAudio` instances for those slots.
-Music, alarm, footsteps, and huffs loop during their assigned story intervals.
-The huff cue uses a quieter overlapping copy of the same selected clip to fill
-the pauses at its loop boundary.
+Music, alarm, and footsteps loop during their assigned story intervals.
+The original huff clip plays every 2.35 seconds during the doorway-to-doorway
+run, leaving a short pause between breaths.
 Each cue's `time` and `stopTime` are positions in the 24-second film. An optional
 `startOffset` selects a position inside a longer uploaded audio file. The wood
 clip plays briefly as the frame lifts free of the wall, then stops at 1.15.
@@ -82,7 +82,7 @@ drop before its cut.
 | 0.55 | FrameScrape | Wood lift from wall mount; starts 0.62 into clip, stops at 1.15 |
 | 1.15 | SwitchClick | Hidden alarm switch click |
 | 1.18 | MusicStop | Assigned accent after the pitch drop |
-| 2.03 | Alarm | Alarm loop, stops at 7.00 |
+| 2.03 | Alarm | Original alarm loop, continues through the title to 24.00 |
 | 2.08 | OfficerFootsteps | Owner's approach before entering the gallery; reuses the existing footsteps clip, stops at 3.80 |
 | 3.10 | NervousBreath | Thief gasp/breath |
 | 4.05 | OwnerGrunt | Angry grunt |
@@ -92,11 +92,15 @@ drop before its cut.
 | 5.00 | Footsteps | Running footsteps loop, stops at 13.10 |
 | 5.18 | DodgeWhoosh | Thief's evasive cut around the sculpture |
 | 5.42 | OfficerBrake | Owner brakes and pivots |
-| 7.46 | Bonk | Reserved for a visible wooden impact; currently silent |
+| 6.15 | OfficerCall | Officer yells during the early chase |
+| 7.46 | Bonk | Wooden impact |
 | 7.56 | Oof | Thief impact reaction |
 | 8.35 | SideScrape | Silent while the widened doorway clears the frame |
-| 8.35 | Huffs | Original huff clip, repeated continuously from the first doorway through the end of the home doorway at 16.90 |
+| 8.35 | Huffs | Original huff clip, with pauses between repeats through the home doorway at 16.90 |
+| 9.25 | ThiefPanic | Thief's brief worried vocal reaction |
+| 12.10 | OfficerChaseGrunt | Second angry grunt during the chase |
 | 13.10 | FastFootsteps | Faster steps loop, stops at 16.50 |
+| 15.10 | ThiefEscapeGasp | Thief gasps while nearing home |
 | 16.25 | BarrierSlam | Original protection barrier effect, raised in volume; ends at 17.05 before the owner hits it |
 | 17.10 | BarrierRattle | Owner hits the protection barrier |
 | 17.30 | Knock1 | Knock 1 |

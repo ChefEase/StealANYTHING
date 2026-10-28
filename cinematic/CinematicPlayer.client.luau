@@ -27,8 +27,8 @@ for _,m in ipairs({thief,owner,painting}) do
 end
 local saved={}
 local sounds={}
-local overlapSounds={}
 local cueFired={}
+local repeatPlayed={}
 local playing=false
 local frozenSecond=nil
 local elapsed=0
@@ -91,13 +91,8 @@ local audioFolder=Instance.new("Folder");audioFolder.Name="CinematicAudio";audio
 for n,spec in pairs(Config.Sounds) do
     local s=Instance.new("Sound");s.Name=n;s.Volume=spec.volume or .5;s.SoundId=spec.id or ""
     s.Looped=n=="OpeningMusic" or n=="Alarm" or n=="ChaseMusic"
-        or n=="OfficerFootsteps" or n=="Footsteps" or n=="FastFootsteps" or n=="Huffs"
+        or n=="OfficerFootsteps" or n=="Footsteps" or n=="FastFootsteps"
     s.Parent=audioFolder;sounds[n]=s
-    if spec.overlap then
-        local fill=s:Clone()
-        fill.Name=n.."Overlap";fill.Volume=s.Volume*.7;fill.Parent=audioFolder
-        overlapSounds[n]=fill
-    end
 end
 local function hideAvatar()
     local char=player.Character
@@ -704,7 +699,16 @@ local function frame(t)
         elseif n=="ChaseMusic" and spec.fadeStart then
             sounds[n].Volume=(spec.volume or .5)*(1-seg(t,spec.fadeStart,spec.stopTime or Config.Duration))
         end
-        if t>=spec.time and not cueFired[n] then
+        if spec.repeatEvery then
+            if t>=spec.time and t<(spec.stopTime or Config.Duration) then
+                local cycle=math.floor((t-spec.time)/spec.repeatEvery)
+                if repeatPlayed[n]~=cycle then
+                    repeatPlayed[n]=cycle
+                    local s=sounds[n]
+                    if s and s.SoundId~="" then s.TimePosition=spec.startOffset or 0;s:Play() end
+                end
+            end
+        elseif t>=spec.time and not cueFired[n] then
             cueFired[n]=true
             local s=sounds[n]
             if s and s.SoundId~="" then
@@ -714,15 +718,6 @@ local function frame(t)
         end
         local s=sounds[n]
         if spec.stopTime and t>=spec.stopTime and s and s.IsPlaying then s:Stop() end
-        local fill=overlapSounds[n]
-        if fill then
-            if t>=spec.time+spec.overlap and t<(spec.stopTime or Config.Duration)
-                and not fill.IsPlaying and fill.SoundId~="" then
-                fill.TimePosition=0
-                fill:Play()
-            end
-            if spec.stopTime and t>=spec.stopTime and fill.IsPlaying then fill:Stop() end
-        end
     end
 end
 local function stop()
@@ -737,7 +732,6 @@ local function stop()
     for n,s in pairs(sounds) do
         s:Stop();s.PlaybackSpeed=1;s.Volume=Config.Sounds[n].volume or .5
     end
-    for _,s in pairs(overlapSounds) do s:Stop() end
     for p,cf in pairs(base) do if p.Parent then p.CFrame=cf end end
     for _,actor in ipairs({thief,owner}) do
         for _,motor in ipairs(actor:GetDescendants()) do
@@ -787,10 +781,12 @@ local function start(from)
     camera.CameraType=Enum.CameraType.Scriptable
     hideAvatar()
     table.clear(cueFired)
+    table.clear(repeatPlayed)
     elapsed=math.clamp(from or 0,0,Config.Duration)
     for n,spec in pairs(Config.Sounds) do
         if spec.time<elapsed then
             cueFired[n]=true
+            if spec.repeatEvery then repeatPlayed[n]=math.floor((elapsed-spec.time)/spec.repeatEvery) end
             -- Shot previews need any active loop, even if its original cue has passed.
             local s=sounds[n]
             if s.Looped and elapsed<(spec.stopTime or Config.Duration) then
@@ -799,13 +795,6 @@ local function start(from)
                     s.TimePosition=s.IsLoaded and s.TimeLength>0 and position%s.TimeLength or position
                     s:Play()
                 end
-            end
-            local fill=overlapSounds[n]
-            if fill and elapsed>=spec.time+spec.overlap
-                and elapsed<(spec.stopTime or Config.Duration) and fill.SoundId~="" then
-                local position=elapsed-spec.time-spec.overlap
-                fill.TimePosition=fill.IsLoaded and fill.TimeLength>0 and position%fill.TimeLength or position
-                fill:Play()
             end
         end
     end
