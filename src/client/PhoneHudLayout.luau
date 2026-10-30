@@ -15,7 +15,7 @@ function PhoneHudLayout.Calculate(size: Vector2)
     local height = math.max(320, size.Y)
     local landscape = height < 500
     local narrow = width < 520
-    local cash: Rect = { x = width - 168, y = 14, w = 154, h = 62 }
+    local cash: Rect = { x = width - 168, y = 14, w = 154, h = 78 }
     local carryHeight = if height < 330 then 76 elseif height < 350 then 86 else 96
     local carry: Rect = {
         x = 14,
@@ -23,10 +23,12 @@ function PhoneHudLayout.Calculate(size: Vector2)
         w = math.min(250, width - 28),
         h = carryHeight,
     }
-    local guideWidth = math.min(300, width - 28)
+    local guideX = math.max(math.floor((width - 300) / 2), carry.x + carry.w + 4)
+    local guideWidth = if landscape then math.min(300, width - guideX - 4)
+        else math.min(300, width - 28)
     local guide: Rect = {
-        x = math.floor((width - guideWidth) / 2),
-        y = if landscape then height - 170 else height - 275,
+        x = if landscape then guideX else math.floor((width - guideWidth) / 2),
+        y = if landscape then height - 215 else math.max(276, height - 320),
         w = guideWidth,
         h = 70,
     }
@@ -53,7 +55,12 @@ function PhoneHudLayout.Calculate(size: Vector2)
         w = noticeWidth,
         h = 58,
     }
-    local objective: Rect = { x = 14, y = 94, w = width - 28, h = 28 }
+    local objective: Rect = {
+        x = 14,
+        y = if landscape then 16 else 40,
+        w = (if landscape then notice.x else cash.x) - 28,
+        h = 48,
+    }
 
     return {
         landscape = landscape,

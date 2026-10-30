@@ -130,6 +130,12 @@ local function migrate(raw: any, nowUnix: number, nextId: () -> string): (any?, 
     local candidate: any
     if raw.schemaVersion == Defaults.CurrentSchemaVersion then
         candidate = copy(raw)
+    elseif raw.schemaVersion == 4 then
+        candidate = copy(raw)
+        candidate.schemaVersion = Defaults.CurrentSchemaVersion
+    elseif raw.schemaVersion == 3 then
+        candidate = copy(raw)
+        candidate.schemaVersion = Defaults.CurrentSchemaVersion
     elseif raw.schemaVersion == 2 then
         candidate = copy(raw)
         candidate.schemaVersion = Defaults.CurrentSchemaVersion
@@ -157,6 +163,22 @@ local function migrate(raw: any, nowUnix: number, nextId: () -> string): (any?, 
                 exhibit.previousSlotId = nil
             end
         end
+    end
+    if raw.schemaVersion < 4 then
+        candidate.collectionIndex = {}
+        for itemId in pairs(candidate.exhibits) do
+            candidate.collectionIndex[itemId] = true
+        end
+        candidate.publicDisplayApproved = {}
+        for slotId, itemId in pairs(candidate.displaySlots) do
+            if slotId ~= "protected" then
+                candidate.publicDisplayApproved[itemId] = true
+            end
+        end
+        candidate.publicDisplayMode = "Auto"
+    end
+    if raw.schemaVersion < 5 then
+        candidate.settings.collectionTutorialDone = false
     end
     local valid, reason = Schema.Validate(candidate)
     if not valid then

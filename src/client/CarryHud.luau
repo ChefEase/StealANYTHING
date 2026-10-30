@@ -276,16 +276,21 @@ function CarryHud.Create(parent: ScreenGui, player: Player)
         if definition ~= nil then
             local protected = definition.baseIncomePerMinute * Balance.PROTECTED_INCOME_MULTIPLIER
             local currentBehavior = player:GetAttribute("CarryBehavior")
+            local publicStock = player:GetAttribute("CarrySource") == "Depot"
             if phoneLayout then
                 itemDetails.Text = string.upper(definition.tier) .. " / "
                     .. string.upper(if type(currentBehavior) == "string" then currentBehavior else "Noisy")
-                incomeDetails.Text = "PROTECTED STAND: $" .. tostring(protected) .. "/MIN"
+                incomeDetails.Text = if publicStock
+                    then "DISPLAY IF PLACED: $" .. tostring(definition.baseIncomePerMinute) .. "/MIN"
+                    else "PROTECTED STAND: $" .. tostring(protected) .. "/MIN"
             else
                 itemDetails.Text = string.upper(definition.tier) .. "  /  "
                     .. string.upper(if type(currentBehavior) == "string" then currentBehavior else "Noisy")
-                incomeDetails.Text = "PROTECTED DISPLAY: $" .. tostring(protected) .. "/MIN"
+                incomeDetails.Text = if publicStock
+                    then "DISPLAY IF PLACED: $" .. tostring(definition.baseIncomePerMinute) .. "/MIN"
+                    else "PROTECTED DISPLAY: $" .. tostring(protected) .. "/MIN"
             end
-            collapsedButton.Text = "TOASTER\n+ INFO"
+            collapsedButton.Text = "CARRY\n+ INFO"
         else
             itemDetails.Text = ""
             incomeDetails.Text = ""
@@ -311,6 +316,7 @@ function CarryHud.Create(parent: ScreenGui, player: Player)
     player:GetAttributeChangedSignal("CurrentCarryItem"):Connect(render)
     player:GetAttributeChangedSignal("CarryBehavior"):Connect(render)
     player:GetAttributeChangedSignal("CarryItemId"):Connect(render)
+    player:GetAttributeChangedSignal("CarrySource"):Connect(render)
     UserInputService.LastInputTypeChanged:Connect(render)
     parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
         updateLayout()

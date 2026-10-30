@@ -6,6 +6,8 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local PhoneHudLayout = require(script.Parent.PhoneHudLayout)
+local Balance = require(ReplicatedStorage.Shared.BalanceConfig)
+local ItemCatalog = require(ReplicatedStorage.Shared.ItemCatalog)
 
 local Theme = require(script.Parent.HudTheme)
 local ACCENT = Theme.Text
@@ -292,6 +294,20 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
         holdText.Text = if prompt.HoldDuration > 0 then "HOLD" else "PRESS"
         action.Text = string.upper(if prompt.ActionText ~= "" then prompt.ActionText else "INTERACT")
         object.Text = if prompt.ObjectText ~= "" then prompt.ObjectText else ""
+        local stockId = prompt:GetAttribute("StockItemId")
+        local item = if type(stockId) == "string" then ItemCatalog.ById[stockId] else nil
+        if item ~= nil then
+            local registered = "," .. tostring(player:GetAttribute("RegisteredItemIds") or "") .. ","
+            if string.find(registered, "," .. stockId .. ",", 1, true) then
+                action.Text = "DUPLICATE STOCK"
+                object.Text = item.name .. "  /  +$"
+                    .. tostring(item.baseIncomePerMinute * Balance.DUPLICATE_SALVAGE_MINUTES)
+                    .. " ON DELIVERY"
+            else
+                object.Text = item.name .. "  /  $"
+                    .. tostring(item.baseIncomePerMinute) .. "/MIN IF DISPLAYED"
+            end
+        end
         progressFill.Size = UDim2.fromScale(if prompt.HoldDuration > 0 then 0 else 1, 1)
     end)
 

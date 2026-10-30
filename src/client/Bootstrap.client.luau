@@ -35,6 +35,34 @@ if ReplicatedStorage:GetAttribute("MuseumIngressOnly") == true then
 end
 connectingScreen:Destroy()
 
+local network = ReplicatedStorage:WaitForChild("Network")
+local collectionRevision = -1
+local function applyPrivateCollection(payload: any)
+    if type(payload) ~= "table" or type(payload.state) ~= "string"
+        or type(payload.registered) ~= "string"
+        or type(payload.revision) ~= "number"
+        or payload.revision < collectionRevision then return end
+    collectionRevision = payload.revision
+    -- LocalPlayer attributes set by this client stay private to this client.
+    player:SetAttribute("CollectionState", payload.state)
+    player:SetAttribute("RegisteredItemIds", payload.registered)
+end
+local collectionChanged = network:WaitForChild("CollectionChanged") :: RemoteEvent
+collectionChanged.OnClientEvent:Connect(applyPrivateCollection)
+local function fetchPrivateCollection()
+    task.spawn(function()
+        local remote = network:WaitForChild("GetCollectionState") :: RemoteFunction
+        local ok, payload = pcall(function() return remote:InvokeServer() end)
+        if ok then applyPrivateCollection(payload) end
+    end)
+end
+player:GetAttributeChangedSignal("ProfileState"):Connect(function()
+    if player:GetAttribute("ProfileState") == "Ready" then
+        fetchPrivateCollection()
+    end
+end)
+fetchPrivateCollection()
+
 local CameraController = require(script.Parent.CameraController)
 local CashHud = require(script.Parent.CashHud)
 local CarryDestinationHud = require(script.Parent.CarryDestinationHud)
@@ -46,6 +74,8 @@ local RemoteHudController = require(script.Parent.RemoteHudController)
 local TutorialPickupController = require(script.Parent.TutorialPickupController)
 local TutorialGuideController = require(script.Parent.TutorialGuideController)
 local OperationsMenu = require(script.Parent.OperationsMenu)
+local CollectionHud = require(script.Parent.CollectionHud)
+local ExhibitAnimationController = require(script.Parent.ExhibitAnimationController)
 local PhoneHudLayout = require(script.Parent.PhoneHudLayout)
 local Theme = require(script.Parent.HudTheme)
 local TravelOfferHud = require(script.Parent.TravelOfferHud)
@@ -105,9 +135,12 @@ RemoteHudController.Start(player)
 TutorialPickupController.Start(player)
 CarryInputController.Start(player, screen)
 TutorialGuideController.Start(player, screen)
-local wardrobePane = OperationsMenu.Start(player, screen)
+local wardrobePane, collectionPane, travelPane, openCollection = OperationsMenu.Start(player, screen)
 WardrobeUi.Start(player, wardrobePane)
-TravelOfferHud.Create(screen, player)
+CollectionHud.Start(player, collectionPane, openCollection)
+ExhibitAnimationController.Start(player)
+require(script.Parent.GuardHud).Start(player, screen)
+TravelOfferHud.Create(travelPane, player)
 
 local objective = Instance.new("Frame")
 objective.Name = "Objective"
@@ -173,9 +206,15 @@ local function updateObjectiveLayout()
         PhoneHudLayout.Apply(objective, PhoneHudLayout.Calculate(screen.AbsoluteSize).objective)
         sizeConstraint.MinSize = Vector2.zero
         sizeConstraint.MaxSize = Vector2.new(2000, 50)
-        local size = if screen.AbsoluteSize.X < 520 then 12 else 14
+        local size = if screen.AbsoluteSize.Y < 500 then 12
+            elseif screen.AbsoluteSize.X < 360 then 10
+            elseif screen.AbsoluteSize.X < 520 then 11 else 14
         objectiveText.TextSize = size
         textShadow.TextSize = size
+        objectiveText.TextWrapped = true
+        textShadow.TextWrapped = true
+        objectiveText.TextTruncate = Enum.TextTruncate.None
+        textShadow.TextTruncate = Enum.TextTruncate.None
     else
         objective.Position = UDim2.fromOffset(32, 28)
         objective.Size = UDim2.new(1, -64, 0, 30)
@@ -183,6 +222,10 @@ local function updateObjectiveLayout()
         sizeConstraint.MaxSize = Vector2.new(540, 30)
         objectiveText.TextSize = 15
         textShadow.TextSize = 15
+        objectiveText.TextWrapped = false
+        textShadow.TextWrapped = false
+        objectiveText.TextTruncate = Enum.TextTruncate.AtEnd
+        textShadow.TextTruncate = Enum.TextTruncate.AtEnd
     end
 end
 
@@ -238,7 +281,7 @@ local function render()
 
     if player:GetAttribute("TutorialStep") == 1 then
         local guide = screen:FindFirstChild("TutorialGuide")
-        objective.Visible = phone or not (guide ~= nil and guide:IsA("GuiObject") and guide.Visible)
+        objective.Visible = not (guide ~= nil and guide:IsA("GuiObject") and guide.Visible)
         setObjective("Watch your toaster earn its first dollar",
             OBJECTIVE_ACCENT, utf8.char(9670), false)
         return
@@ -246,8 +289,8 @@ local function render()
 
     if player:GetAttribute("TutorialStep") == 2 then
         local guide = screen:FindFirstChild("TutorialGuide")
-        objective.Visible = phone or not (guide ~= nil and guide:IsA("GuiObject") and guide.Visible)
-        setObjective("Next: depot heist coming soon",
+        objective.Visible = not (guide ~= nil and guide:IsA("GuiObject") and guide.Visible)
+        setObjective("Next: steal stock from the public depot",
             COMPLETE_ACCENT, utf8.char(10003), false)
         return
     end

@@ -9,6 +9,9 @@ local Server = script.Parent.Parent
 local Environment = require(Server.Config.EnvironmentConfig)
 local RepositoryModule = require(Server.Data.ProfileRepository)
 local ContractDefinitions = require(game:GetService("ReplicatedStorage").Shared.ContractDefinitions)
+local ItemCatalog = require(game:GetService("ReplicatedStorage").Shared.ItemCatalog)
+local Balance = require(game:GetService("ReplicatedStorage").Shared.BalanceConfig)
+local PlotDefinitions = require(game:GetService("ReplicatedStorage").Shared.PlotDefinitions)
 local IncomeMath = require(Server.Domain.IncomeMath)
 local TutorialProgress = require(Server.Domain.TutorialProgress)
 local MatchRules = require(Server.Parent.MatchShared.MatchRules)
@@ -22,8 +25,49 @@ local started = false
 local loadingPlayers: {[number]: boolean} = {}
 local releasingPlayers: {[number]: string} = {}
 local beforeReleaseHandlers: {(Player) -> ()} = {}
+local collectionChanged: RemoteEvent? = nil
+local collectionCache: {[number]: string} = {}
 
 local ProfileService = {}
+
+local function collectionPayload(profile: any): any
+    local registered = {}
+    local collection = {}
+    local storageUsed = 0
+    for _, itemId in ItemCatalog.OrderedIds do
+        local exhibit = profile.exhibits[itemId]
+        local slotId: string? = nil
+        if exhibit ~= nil then
+            table.insert(registered, itemId)
+            for placedSlot, placedId in pairs(profile.displaySlots) do
+                if placedId == itemId then slotId = placedSlot break end
+            end
+            if exhibit.state == "Available" and slotId == nil then
+                storageUsed += 1
+            end
+        end
+        if profile.collectionIndex[itemId] == true then
+            table.insert(collection, {
+                id = itemId,
+                state = if exhibit then exhibit.state else "Discovered",
+                slot = slotId,
+                approved = profile.publicDisplayApproved[itemId] == true,
+            })
+        end
+    end
+    return {
+        revision = profile.revision,
+        registered = table.concat(registered, ","),
+        state = HttpService:JSONEncode({
+            items = collection,
+            mode = profile.publicDisplayMode,
+            storageUsed = storageUsed,
+            storageCapacity = Balance.STORAGE_SLOTS_BY_MUSEUM_TIER[profile.museum.tier]
+                or Balance.STARTING_STORAGE_SLOTS,
+            displayCapacity = PlotDefinitions.Tiers[profile.museum.tier].standCount,
+        }),
+    }
+end
 
 local function syncPublicProfile(player: Player)
     if repository == nil then return end
@@ -31,11 +75,20 @@ local function syncPublicProfile(player: Player)
     if profile ~= nil then
         player:SetAttribute("Cash", profile.cash)
         player:SetAttribute("TravelTipsEnabled", profile.settings.travelTipsEnabled)
+        player:SetAttribute("CollectionTutorialDone", profile.settings.collectionTutorialDone)
         player:SetAttribute("NpcDeliveries", profile.lifetime.npcDeliveries)
         player:SetAttribute("TutorialStep", profile.tutorialStep)
         player:SetAttribute("TutorialGuardProtected",
             TutorialProgress.FirstItemGuardProtected(profile))
         player:SetAttribute("HasTutorialToaster", profile.exhibits.toaster ~= nil)
+        if collectionChanged ~= nil then
+            local payload = collectionPayload(profile)
+            local key = payload.registered .. "|" .. payload.state
+            if collectionCache[player.UserId] ~= key then
+                collectionCache[player.UserId] = key
+                collectionChanged:FireClient(player, payload)
+            end
+        end
         player:SetAttribute("IncomePerMinute", IncomeMath.RatePerMinute(profile))
         local selected = profile.contracts[1]
         if profile.pinnedContractId ~= nil then
@@ -260,6 +313,16 @@ function ProfileService.Start()
         return
     end
     started = true
+    local network = game:GetService("ReplicatedStorage"):WaitForChild("Network")
+    collectionChanged = network:WaitForChild("CollectionChanged") :: RemoteEvent
+    local getCollection = network:WaitForChild("GetCollectionState") :: RemoteFunction
+    getCollection.OnServerInvoke = function(player: Player): any?
+        if repository == nil or player:GetAttribute("ProfileState") ~= "Ready" then
+            return nil
+        end
+        local profile = repository:GetSnapshot(player.UserId)
+        return if profile ~= nil then collectionPayload(profile) else nil
+    end
     if safeEnvironment() then
         local ok, store = pcall(function()
             return DataStoreService:GetDataStore(Environment.StoreName)
@@ -279,6 +342,7 @@ function ProfileService.Start()
         task.spawn(loadPlayer, player)
     end)
     Players.PlayerRemoving:Connect(function(player)
+        collectionCache[player.UserId] = nil
         releasePlayerOnce(player)
     end)
     for _, player in ipairs(Players:GetPlayers()) do

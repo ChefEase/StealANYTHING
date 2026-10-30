@@ -22,13 +22,13 @@ local items = {
 local previewItems = {
     { id = "neon_phantom_outfit", name = "Neon Phantom", slot = "Outfit", price = 0,
         currency = "Robux", draftRobuxPrice = 99,
-        note = "Hooded black suit with luminous cyan seams. Robux preview only." },
+        note = "Cyan holographic contours, a moving scan plane and glitch fragments. Robux preview only." },
     { id = "shadow_king_outfit", name = "Shadow King", slot = "Outfit", price = 0,
         currency = "Robux", draftRobuxPrice = 199,
-        note = "Violet crown, angular cape, and dark royal armor. Robux preview only." },
+        note = "Violet crown and an unfolding throne of living shadow blades. Robux preview only." },
     { id = "legendary_animated_outfit", name = "Legendary Robber", slot = "Outfit", price = 0,
         currency = "Robux", draftRobuxPrice = 399,
-        note = "Gold coat and animated visual accents. Robux preview only." },
+        note = "Gold coat, a floating royal card fan and tumbling jackpot coins. Robux preview only." },
 }
 
 local byId: {[string]: any} = {}

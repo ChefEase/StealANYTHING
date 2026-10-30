@@ -5,6 +5,7 @@ export type ItemId = "toaster" | "duck" | "traffic_cone" | "disco_bin"
     | "mini_ufo" | "dinosaur_skull" | "storm_jar" | "giant_diamond"
 export type CarryBehavior = "Heavy" | "Noisy" | "Bouncy"
 export type Rarity = "Common" | "Uncommon" | "Rare" | "Legendary"
+export type FootprintClass = "Small" | "Medium" | "Heavy"
 export type SlotId = "protected" | "exposed_01" | "exposed_02" | "exposed_03"
     | "exposed_04" | "exposed_05" | "exposed_06" | "exposed_07"
     | "exposed_08" | "exposed_09"
@@ -14,6 +15,7 @@ export type ItemDefinition = {
     name: string,
     tier: Rarity,
     carry: CarryBehavior,
+    sizeClass: FootprintClass,
     baseIncomePerMinute: number,
     shopPrice: number?,
     depotWeight: number,
@@ -74,6 +76,7 @@ export type Settings = {
     reduceMotion: boolean,
     lowEffects: boolean,
     travelTipsEnabled: boolean,
+    collectionTutorialDone: boolean,
 }
 
 export type Lifetime = {
@@ -106,6 +109,9 @@ export type PlayerProfile = {
     incomeRemainder: number,
     exhibits: {[ItemId]: Exhibit},
     displaySlots: {[SlotId]: ItemId},
+    collectionIndex: {[ItemId]: boolean},
+    publicDisplayApproved: {[ItemId]: boolean},
+    publicDisplayMode: "Auto" | "Manual",
     museum: MuseumRecord,
     accreditation: number,
     lifetime: Lifetime,

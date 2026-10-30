@@ -45,10 +45,10 @@ for _, size in sizes do
 
     distinct({ layout.cash, layout.guide }, "new tutorial")
     distinct({ layout.cash, layout.prompt, layout.notice }, "pickup prompt")
-    distinct({ layout.cash, layout.carry, layout.guide }, "carrying")
+    distinct({ layout.cash, layout.carry, layout.guide, layout.notice }, "carrying")
     distinct({ layout.cash, layout.carry, layout.notice }, "carry feedback")
     distinct({ layout.cash, layout.carry, layout.deliver, layout.notice }, "delivery")
-    distinct({ layout.cash, layout.objective, layout.notice }, "completed tutorial")
+    distinct({ layout.cash, layout.carry, layout.objective, layout.notice }, "completed tutorial")
 end
 
 print("Phone HUD layouts and interaction states: PASS")

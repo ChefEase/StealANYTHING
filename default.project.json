@@ -27,6 +27,10 @@
         "CancelPickup": { "$className": "RemoteEvent" },
         "DeliverCarry": { "$className": "RemoteEvent" },
         "DropCarry": { "$className": "RemoteEvent" },
+        "ArrangeExhibit": { "$className": "RemoteEvent" },
+        "FinishCollectionTutorial": { "$className": "RemoteEvent" },
+        "CollectionChanged": { "$className": "RemoteEvent" },
+        "GetCollectionState": { "$className": "RemoteFunction" },
         "StartTutorialReplay": { "$className": "RemoteEvent" },
         "ReturnToLobby": { "$className": "RemoteEvent" },
         "Feedback": { "$className": "RemoteEvent" }

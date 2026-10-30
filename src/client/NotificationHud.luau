@@ -105,7 +105,12 @@ function NotificationHud.Create(parent: ScreenGui, player: Player)
         end
     end)
 
+    local pending: {message: string, description: string, kind: string}? = nil
     local function show(message: string, description: string, kind: string)
+        if parent:GetAttribute("GuardWarningVisible") then
+            pending = {message=message, description=description, kind=kind}
+            return
+        end
         displayToken += 1
         local token = displayToken
         local color = COLORS[kind] or COLORS.Info
@@ -136,6 +141,17 @@ function NotificationHud.Create(parent: ScreenGui, player: Player)
             end
         end)
     end
+
+    parent:GetAttributeChangedSignal("GuardWarningVisible"):Connect(function()
+        if parent:GetAttribute("GuardWarningVisible") then
+            displayToken += 1
+            panel.Visible = false
+        elseif pending then
+            local message = pending
+            pending = nil
+            show(message.message, message.description, message.kind)
+        end
+    end)
 
     local function renderAttribute()
         local message = player:GetAttribute("HudNotificationText")

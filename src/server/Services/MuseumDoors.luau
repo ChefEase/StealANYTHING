@@ -9,6 +9,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local DoorAudio = require(game:GetService("ReplicatedStorage").Shared.ExhibitSoundConfig).Door
 
 type Leaf = { part: BasePart, closed: CFrame, open: CFrame, isOpen: boolean }
 type Door = {
@@ -17,6 +18,7 @@ type Door = {
     halfWidth: number,
     leaves: { Leaf },
     prompt: ProximityPrompt,
+    sound: Sound,
     nextChange: number,
 }
 
@@ -32,7 +34,6 @@ local MAX_HOLD_SECONDS = 90
 local PLAYER_OPEN_HOLD_SECONDS = 60
 local SWING = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local DOOR_COLOR = Color3.fromRGB(92, 62, 40)
-local PLAYER_OPEN_SOUND = "rbxassetid://9120839174" -- short wooden door creak
 
 local function inLocal(frame: CFrame, part: Instance?): Vector3?
     if part ~= nil and part:IsA("BasePart") then
@@ -68,6 +69,9 @@ local function setLeaf(leaf: Leaf, open: boolean)
 end
 
 local function apply(door: Door, leftOpen: boolean, rightOpen: boolean)
+    local opening = (leftOpen and not door.leaves[1].isOpen)
+        or (rightOpen and not door.leaves[2].isOpen)
+    if opening and door.sound.SoundId ~= "" then door.sound:Play() end
     setLeaf(door.leaves[1], leftOpen)
     setLeaf(door.leaves[2], rightOpen)
     door.prompt.Enabled = not leftOpen and not rightOpen
@@ -188,10 +192,12 @@ function MuseumDoors.Attach(museum: Model)
     prompt.Parent = anchor
     local openSound = Instance.new("Sound")
     openSound.Name = "PlayerDoorOpenSound"
-    openSound.SoundId = PLAYER_OPEN_SOUND
-    openSound.Volume = 0.7
-    openSound.PlaybackSpeed = 1.5
-    openSound.RollOffMaxDistance = 55
+    openSound.SoundId = DoorAudio.SoundId
+    openSound.Volume = DoorAudio.Volume
+    openSound.PlaybackSpeed = 1
+    openSound.RollOffMode = Enum.RollOffMode.InverseTapered
+    openSound.RollOffMinDistance = 8
+    openSound.RollOffMaxDistance = DoorAudio.MaxDistance
     openSound.Parent = anchor
     model.Parent = museum
 
@@ -201,6 +207,7 @@ function MuseumDoors.Attach(museum: Model)
         halfWidth = width / 2,
         leaves = leaves,
         prompt = prompt,
+        sound = openSound,
         nextChange = 0,
     }
     doors[museum] = door
@@ -210,8 +217,6 @@ function MuseumDoors.Attach(museum: Model)
         if now - (lastOpen[player.UserId] or -10) < 0.5 then return end
         lastOpen[player.UserId] = now
         apply(door, true, true)
-        openSound:Stop()
-        openSound:Play()
         door.nextChange = now + PLAYER_OPEN_HOLD_SECONDS
     end)
     museum.Destroying:Connect(function()

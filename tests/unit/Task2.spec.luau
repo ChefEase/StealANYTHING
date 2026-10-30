@@ -33,7 +33,7 @@ local function mustReject(profile: any, expectedPath: string)
         "expected rejection at " .. expectedPath .. ", got " .. tostring(reason))
 end
 
-assert(Defaults.CurrentSchemaVersion == 3)
+assert(Defaults.CurrentSchemaVersion == 5)
 assert(Balance.STARTING_CASH == 100)
 assert(Environment.Environment == "development")
 assert(Environment.StoreName == "StealAnything_Dev_v1")
@@ -88,7 +88,7 @@ for key, name in pairs(Remotes.Requests) do
     assert(key == name)
     requestCount += 1
 end
-assert(requestCount == 13) -- Task 11b added the tutorial replay request.
+assert(requestCount == 17) -- Collection reads, arrangements and tutorial completion are owner-scoped.
 
 local valid, reason = Schema.Validate(fresh())
 assert(valid, tostring(reason))
@@ -115,6 +115,8 @@ profile = fresh()
 profile.exhibits.toaster = { state = "Available", registeredAtUnix = 1_700_000_000,
     acquisition = "Tutorial", recoveryJobsDone = 0 }
 profile.lifetime.distinctRegistered = 1
+profile.collectionIndex.toaster = true
+profile.publicDisplayApproved.toaster = true
 profile.displaySlots.protected = "toaster"
 profile.displaySlots.exposed_01 = "toaster"
 mustReject(profile, "duplicate item placement")

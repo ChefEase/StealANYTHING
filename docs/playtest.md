@@ -6,10 +6,11 @@ Use a fresh development or test profile in Studio. Do not use the production dat
 
 1. Join in the museum. Record whether the player finds the depot using the objective and arrow. Check that the starter cash is $100 and no purchase prompt appears.
 2. At the personal toaster, hold the displayed pickup control for the full hold. Verify the toaster attaches once and the destination changes to the museum exhibit stand.
-3. Take either route back. Verify the first item cannot be confiscated by a depot guard when that guard is added in Task 14. In the current Task 10 build, no guard NPC exists.
+3. Take either route back. The Task 14 depot guard may give a practice warning but must never chase or confiscate the tutorial item. For normal public stock, verify the warning, cover escape, capture, and museum safety using [task14-guards.md](task14-guards.md).
 4. At the protected stand or entrance mat, hold the delivery control. Verify the toaster appears on the protected stand, the cash HUD shows $6/min while playing, and the guide says to watch the first dollar.
-5. Wait for cash to rise by $1. Verify the next objective says a depot heist is coming. Public stock is not yet available in this build; the objective must not suggest that an unavailable pedestal is usable.
-6. Leave and rejoin. Verify the toaster, cash, and next objective return. No cash should accrue for the time offline.
+5. Wait for cash to rise by $1. Verify the next objective points to the public depot. Check that three shared pedestals show their item and rotation countdown.
+6. Pick up one public item, carry it to the museum drop-off, and verify it registers or pays duplicate salvage. Check that the taken pedestal shows its restock countdown.
+7. Leave and rejoin. Verify the toaster, cash, public item registration, and next objective return. No cash should accrue for the time offline.
 
 ## Resume points
 

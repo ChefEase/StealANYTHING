@@ -85,6 +85,7 @@ function TravelEffects.SetCarryTeleportHandlers(
 end
 
 function TravelEffects.Teleport(player: Player, destination: CFrame): boolean
+    if player:GetAttribute("GuardChased") == true then return false end
     local character = player.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
     if not character or not root or not root:IsA("BasePart") then return false end
@@ -95,7 +96,8 @@ function TravelEffects.Teleport(player: Player, destination: CFrame): boolean
     burst(root.Position - Vector3.new(0, 2.5, 0))
     task.wait(0.22)
     if player.Character ~= character or not character.Parent or not root.Parent
-        or player:GetAttribute("CurrentCarryItem") ~= carriedItem then return false end
+        or player:GetAttribute("CurrentCarryItem") ~= carriedItem
+        or player:GetAttribute("GuardChased") == true then return false end
     local origin = root.Position
     if carriedItem ~= nil and not (canCarryTeleport :: (Player, Vector3) -> boolean)(player, origin) then
         return false

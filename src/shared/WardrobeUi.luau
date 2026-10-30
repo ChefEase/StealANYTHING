@@ -1,4 +1,5 @@
 --!strict
+local SignatureVfx = require(script.Parent.SignatureVfx)
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -59,6 +60,7 @@ local function label(parent: Instance, name: string, caption: string,
 end
 
 function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener: boolean?)
+    SignatureVfx.Start()
     local action = ReplicatedStorage:WaitForChild("WardrobeAction") :: RemoteEvent
     local state = ReplicatedStorage:WaitForChild("WardrobeState") :: RemoteEvent
     local playerGui = player:WaitForChild("PlayerGui")
@@ -193,7 +195,7 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     camera.Parent = preview
     preview.CurrentCamera = camera
 
-    -- Viewports skip particles, lights and trails, so the glow showcase is drawn in UI.
+    -- The badge identifies the live geometry effect rendered inside the viewport.
     local showcase = Instance.new("Frame")
     showcase.Name = "GlowShowcase"
     showcase.Size = UDim2.fromScale(1, 1)
@@ -208,11 +210,11 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     badge.TextColor3 = ICE
     badge.TextXAlignment = Enum.TextXAlignment.Center
     badge.TextStrokeColor3 = GLOW
-    badge.TextStrokeTransparency = 0.3
+    badge.TextStrokeTransparency = 1
     badge.ZIndex = 4
     local frameStroke = Instance.new("UIStroke")
     frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    frameStroke.Thickness = 3
+    frameStroke.Thickness = 1
     frameStroke.Color = WHITE
     frameStroke.Enabled = false
     frameStroke.Parent = preview
@@ -224,26 +226,9 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
         ColorSequenceKeypoint.new(1, GLOW),
     })
     strokeGradient.Parent = frameStroke
-    local function spark()
-        local dot = Instance.new("Frame")
-        local size = math.random(3, 8)
-        local x = 0.12 + math.random() * 0.76
-        dot.Size = UDim2.fromOffset(size, size)
-        dot.AnchorPoint = Vector2.new(0.5, 0.5)
-        dot.Position = UDim2.fromScale(x, 1.03)
-        dot.BackgroundColor3 = if math.random() < 0.35 then WHITE elseif math.random() < 0.5 then ICE else GLOW
-        dot.BorderSizePixel = 0
-        dot.ZIndex = 3
-        dot.Parent = showcase
-        rounded(dot, size)
-        local life = 1.1 + math.random() * 1.2
-        TweenService:Create(dot, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Position = UDim2.fromScale(x + (math.random() - 0.5) * 0.14, 0.12 + math.random() * 0.5),
-            BackgroundTransparency = 1,
-        }):Play()
-        task.delay(life, dot.Destroy, dot)
-    end
-
+    local auraStyle = "Phantom"
+    local auraColor = GLOW
+    local auraSecondary = ICE
     local selectedName = label(panel, "SelectedName", "SELECT AN ITEM",
         UDim2.new(0.5, -16, 0, 25), UDim2.new(0.48, 2, 0.56, 3), 15)
     selectedName.Font = Enum.Font.GothamBold
@@ -299,7 +284,7 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     local glowing = false
     local spinning = false
     local yaw = math.pi
-    local sparkClock = 0
+    local previewEffects: any = {}
     local function owns(item: any): boolean
         return item.currency == "Free" or record.owned[item.id] == true
     end
@@ -322,19 +307,45 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
         end
         local sample = table.clone(record.loadout)
         sample[selected.slot] = selected.id
+        auraStyle = if selected.id == "shadow_king_outfit" then "Shadow"
+            elseif selected.id == "legendary_animated_outfit" then "Gold" else "Phantom"
+        auraColor = if auraStyle == "Shadow" then Color3.fromRGB(177, 103, 255)
+            elseif auraStyle == "Gold" then Color3.fromRGB(255, 205, 82) else GLOW
+        auraSecondary = if auraStyle == "Shadow" then Color3.fromRGB(115, 65, 201)
+            elseif auraStyle == "Gold" then Color3.fromRGB(255, 246, 180) else ICE
         glowing = selected.id == "phantom_glow" or selected.id == "neon_phantom_outfit"
+            or selected.id == "shadow_king_outfit"
+            or selected.id == "legendary_animated_outfit"
         spinning = glowing or selected.slot == "Outfit"
         showcase.Visible = glowing
         frameStroke.Enabled = glowing
         buyStroke.Enabled = glowing and not owns(selected)
-        preview.BackgroundColor3 = if glowing then GLOW_BG else PREVIEW_BG
+        preview.BackgroundColor3 = if auraStyle == "Shadow" and glowing
+            then Color3.fromRGB(23, 12, 35)
+            elseif auraStyle == "Gold" and glowing then Color3.fromRGB(34, 24, 10)
+            elseif glowing then GLOW_BG else PREVIEW_BG
+        badge.Text = if auraStyle == "Shadow" then "LIVING SHADOW THRONE"
+            elseif auraStyle == "Gold" then "ROYAL FLUSH / JACKPOT"
+            elseif selected.id == "neon_phantom_outfit" then "DIGITAL AFTERIMAGE"
+            else "PHANTOM GLOW"
+        badge.TextColor3 = auraSecondary
+        badge.TextStrokeColor3 = auraColor
+        buyStroke.Color = auraColor
+        strokeGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, auraColor),
+            ColorSequenceKeypoint.new(0.35, auraSecondary),
+            ColorSequenceKeypoint.new(0.7, auraColor),
+            ColorSequenceKeypoint.new(1, auraSecondary),
+        })
         yaw = if selected.id == "getaway_bag" then math.pi * 0.83 else math.pi
         clone.Parent = world
         clone:PivotTo(CFrame.Angles(0, yaw, 0))
         Appearance.Apply(clone, sample)
+        previewEffects = SignatureVfx.Preview(clone)
+        SignatureVfx.UpdatePreview(previewEffects, os.clock(), false)
         if glowing then
-            -- Wide enough for the rune circle at the feet and the halo overhead.
-            camera.CFrame = CFrame.lookAt(Vector3.new(0, 0.4, 14.5), Vector3.new(0, -0.7, 0))
+            -- Frame the complete animated silhouette.
+            camera.CFrame = CFrame.lookAt(Vector3.new(0, 0.4, 12.8), Vector3.new(0, -0.35, 0))
         elseif selected.slot == "Face" then
             camera.CFrame = CFrame.lookAt(Vector3.new(0, 1.55, 5.5), Vector3.new(0, 1.35, 0))
         elseif selected.slot == "Body" then
@@ -417,20 +428,10 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
         local onScreen = if menuHost then menuHost.Visible else shade.Visible
         if not onScreen then return end
         if spinning and previewModel then
-            yaw += dt * 0.7
+            yaw = math.pi + math.sin(os.clock() * 0.35) * 0.38
             previewModel:PivotTo(CFrame.Angles(0, yaw, 0))
         end
-        if not glowing then return end
-        local t = os.clock()
-        strokeGradient.Rotation = (t * 120) % 360
-        frameStroke.Transparency = 0.15 + 0.25 * (0.5 + 0.5 * math.sin(t * 3))
-        buyStroke.Thickness = 1.5 + 2 * (0.5 + 0.5 * math.sin(t * 4))
-        badge.TextTransparency = 0.25 * (0.5 + 0.5 * math.sin(t * 3))
-        sparkClock = math.min(sparkClock + dt, 0.4)
-        while sparkClock > 0.08 do
-            sparkClock -= 0.08
-            spark()
-        end
+        SignatureVfx.UpdatePreview(previewEffects, os.clock(), player:GetAttribute("ReduceMotion") == true)
     end)
     opener.Activated:Connect(open)
     close.Activated:Connect(closePanel)

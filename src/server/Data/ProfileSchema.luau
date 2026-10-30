@@ -12,6 +12,7 @@ local TierOne = require(game:GetService("ReplicatedStorage").Shared.Task11TierOn
 local TOP_LEVEL_KEYS = {
     schemaVersion = true, revision = true, createdAtUnix = true, lastSavedAtUnix = true,
     cash = true, incomeRemainder = true, exhibits = true, displaySlots = true,
+    collectionIndex = true, publicDisplayApproved = true, publicDisplayMode = true,
     accreditation = true, lifetime = true, tutorialStep = true,
     beginnerActiveSeconds = true, contracts = true, pinnedContractId = true,
     activeRecoveryType = true, settings = true, cosmetics = true,
@@ -21,7 +22,7 @@ local EXHIBIT_KEYS = { state = true, registeredAtUnix = true, acquisition = true
 local CONTRACT_KEYS = { instanceId = true, definitionId = true, progress = true, assignedAtUnix = true, completed = true, claimed = true }
 local OPERATION_KEYS = { kind = true, result = true, committedAtUnix = true, requestScope = true, resultCode = true }
 local LIFETIME_KEYS = { npcDeliveries = true, pvpDeliveries = true, recoveryParcels = true, distinctRegistered = true, totalCashEarned = true }
-local SETTINGS_KEYS = { masterVolume = true, musicVolume = true, effectsVolume = true, reduceMotion = true, lowEffects = true, travelTipsEnabled = true }
+local SETTINGS_KEYS = { masterVolume = true, musicVolume = true, effectsVolume = true, reduceMotion = true, lowEffects = true, travelTipsEnabled = true, collectionTutorialDone = true }
 local RAID_KEYS = { phase = true, remainingSeconds = true }
 local MUSEUM_KEYS = { version = true, tier = true, styleId = true,
     groundsPresetId = true, securityLevel = true }
@@ -172,8 +173,36 @@ local function validate(value: any): (boolean, string?)
             return reject("exhibits." .. itemId, "available exhibit retains missing-state fields")
         end
     end
-    if exhibitCount > #Items.OrderedIds or profile.lifetime.distinctRegistered ~= exhibitCount then
-        return reject("lifetime.distinctRegistered", "does not match exhibits")
+    if exhibitCount > #Items.OrderedIds then
+        return reject("exhibits", "too many owned types")
+    end
+
+    if type(profile.collectionIndex) ~= "table"
+        or type(profile.publicDisplayApproved) ~= "table"
+        or (profile.publicDisplayMode ~= "Auto" and profile.publicDisplayMode ~= "Manual") then
+        return reject("collection", "invalid index or display preferences")
+    end
+    local indexCount = 0
+    for itemId, discovered in pairs(profile.collectionIndex) do
+        if Items.ById[itemId] == nil or discovered ~= true then
+            return reject("collectionIndex", "unknown or invalid discovery")
+        end
+        indexCount += 1
+    end
+    for itemId, approved in pairs(profile.publicDisplayApproved) do
+        if Items.ById[itemId] == nil or approved ~= true
+            or profile.exhibits[itemId] == nil then
+            return reject("publicDisplayApproved", "unknown or unowned item")
+        end
+    end
+    if indexCount > #Items.OrderedIds
+        or profile.lifetime.distinctRegistered ~= indexCount then
+        return reject("collectionIndex", "discovery count mismatch")
+    end
+    for itemId in pairs(profile.exhibits) do
+        if profile.collectionIndex[itemId] ~= true then
+            return reject("collectionIndex", "owned item is undiscovered")
+        end
     end
 
     if type(profile.displaySlots) ~= "table" then
@@ -192,6 +221,22 @@ local function validate(value: any): (boolean, string?)
             return reject("displaySlots." .. slotId, "duplicate item placement")
         end
         placedItems[itemId] = true
+        if slotId ~= "protected" and profile.publicDisplayApproved[itemId] ~= true then
+            return reject("displaySlots." .. slotId, "public display lacks approval")
+        end
+    end
+    if profile.tutorialStep == 1 and profile.displaySlots.protected ~= "toaster" then
+        return reject("displaySlots.protected", "tutorial toaster must earn first income")
+    end
+    local storedCount = 0
+    for itemId, exhibit in pairs(profile.exhibits) do
+        if exhibit.state == "Available" and not placedItems[itemId] then
+            storedCount += 1
+        end
+    end
+    local storageCapacity = Balance.STORAGE_SLOTS_BY_MUSEUM_TIER[profile.museum.tier]
+    if storageCapacity == nil or storedCount > storageCapacity then
+        return reject("storage", "capacity exceeded")
     end
     for itemId, exhibit in pairs(profile.exhibits) do
         if exhibit.previousSlotId ~= nil
@@ -261,7 +306,8 @@ local function validate(value: any): (boolean, string?)
         end
     end
     if type(profile.settings.reduceMotion) ~= "boolean" or type(profile.settings.lowEffects) ~= "boolean"
-        or type(profile.settings.travelTipsEnabled) ~= "boolean" then
+        or type(profile.settings.travelTipsEnabled) ~= "boolean"
+        or type(profile.settings.collectionTutorialDone) ~= "boolean" then
         return reject("settings", "invalid accessibility flags")
     end
     if not hasOnlyKeys(profile.cosmetics, COSMETIC_IDS) then

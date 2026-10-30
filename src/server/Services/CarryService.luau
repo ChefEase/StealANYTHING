@@ -7,8 +7,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Balance = require(ReplicatedStorage.Shared.BalanceConfig)
 local ItemCatalog = require(ReplicatedStorage.Shared.ItemCatalog)
 local ToasterVisual = require(ReplicatedStorage.Shared.ToasterVisual)
+local ItemVisuals = require(ReplicatedStorage.Shared.ItemVisuals)
+local DepotStockCard = require(script.Parent.DepotStockCard)
 local ProfileService = require(script.Parent.ProfileService)
 local PlotService = require(script.Parent.PlotService)
+local PublicStockService = require(script.Parent.PublicStockService)
 local TravelEffects = require(script.Parent.TravelEffects)
 local TutorialCarryState = require(script.Parent.TutorialCarryState)
 
@@ -33,6 +36,8 @@ local deliveryLocked: {[number]: boolean} = {}
 local lastBegin: {[number]: number} = {}
 local lastFeedback: {[number]: number} = {}
 
+local NpcFeedback = require(script.Parent.NpcRunFeedback)
+local TutorialProgress = require(script.Parent.Parent.Domain.TutorialProgress)
 local CarryService = {}
 
 local function tell(player: Player, message: string, kind: string?)
@@ -49,6 +54,15 @@ local function tutorialEligible(player: Player): boolean
     return profile ~= nil and PlotService.GetMuseum(player) ~= nil
         and (profile.tutorialStep == 0 and profile.exhibits.toaster == nil
         or player:GetAttribute("TutorialReplayActive") == true)
+end
+
+local function publicEligible(player: Player): boolean
+    local profile = ProfileService.GetSnapshot(player)
+    return profile ~= nil and profile.tutorialStep >= 2
+        and player:GetAttribute("TutorialReplayActive") ~= true
+        and PlotService.GetMuseum(player) ~= nil
+        and (not game:GetAttribute("MatchmakingEnabled")
+            or player:GetAttribute("MatchActive") == true)
 end
 
 local function setPickupEligible(player: Player)
@@ -102,8 +116,9 @@ local function sampleCarryRoute(route: any, position: Vector3)
     route.lastTime = now
 end
 
-local function validPickupPosition(player: Player): boolean
-    local anchor = target
+local function validPickupPosition(player: Player, targetId: string): boolean
+    if os.clock() < (player:GetAttribute("GuardStaggerUntil") or 0) then return false end
+    local anchor = if targetId == TARGET_ID then target else PublicStockService.GetAnchor(targetId)
     if anchor == nil or anchor.Parent == nil then return false end
     local character, _, root = livingCharacter(player)
     if character == nil or root == nil then return false end
@@ -116,7 +131,11 @@ local function validPickupPosition(player: Player): boolean
     local rayParams = RaycastParams.new()
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
     local ignored: {Instance} = { character, anchor }
-    if display ~= nil then table.insert(ignored, display) end
+    if targetId == TARGET_ID and display ~= nil then table.insert(ignored, display) end
+    if targetId ~= TARGET_ID then
+        local publicDisplay = PublicStockService.GetDisplay(targetId)
+        if publicDisplay ~= nil then table.insert(ignored, publicDisplay) end
+    end
     rayParams.FilterDescendantsInstances = ignored
     rayParams.IgnoreWater = true
     rayParams.RespectCanCollide = true
@@ -151,9 +170,19 @@ local function buildTarget(): boolean
     anchor.Parent = runtime
     target = anchor
 
-    local toaster = ToasterVisual.Create("TutorialToasterDisplay", socket.CFrame * CFrame.new(0, -0.6, 0), true)
+    local toaster = ItemVisuals.Create("toaster", "TutorialToasterDisplay",
+        socket.CFrame * CFrame.new(0, -0.6, 0), true)
     toaster.Parent = runtime
     display = toaster
+
+    local toasterCard = DepotStockCard.Create(socket, "YOUR FIRST HEIST")
+    DepotStockCard.ShowTutorial(toasterCard, ItemCatalog.ById.toaster,
+        ItemCatalog.ById.toaster.baseIncomePerMinute
+            * Balance.PROTECTED_INCOME_MULTIPLIER)
+    toasterCard.gui.Name = "TutorialStockCard"
+    toasterCard.gui.Adornee = socket
+    toasterCard.gui.Enabled = false
+    toasterCard.gui.Parent = anchor
 
     local pickupPrompt = Instance.new("ProximityPrompt")
     pickupPrompt.Name = "TutorialPickupPrompt"
@@ -208,6 +237,7 @@ local function clearCarryDisplay(player: Player)
     player:SetAttribute("CarryId", nil)
     player:SetAttribute("CarryRunId", nil)
     player:SetAttribute("CarryItemId", nil)
+    player:SetAttribute("CarrySource", nil)
     player:SetAttribute("CurrentCarryItem", nil)
     player:SetAttribute("CarryBehavior", nil)
     player:SetAttribute("CarryDestination", nil)
@@ -223,7 +253,16 @@ local function restoreSpeed(player: Player)
     end
 end
 
-local function clearPlayer(player: Player)
+local function clearPlayer(player: Player, failureReason: string?)
+    local session = state:Get(player.UserId)
+    if session ~= nil and session.targetId ~= TARGET_ID then
+        if session.kind == "Pending" then
+            PublicStockService.Cancel(session.targetId, player.UserId, session.requestId)
+        else
+            if failureReason then NpcFeedback.Record(player, failureReason, session.runId) end
+            PublicStockService.Fail(session.runId)
+        end
+    end
     state:Clear(player.UserId)
     destroyVisual(player)
     restoreArmPose(player)
@@ -242,8 +281,17 @@ local function attachCarry(player: Player, carry: any): boolean
     poseArms(player, character)
     local center = hand.Position - root.CFrame.RightVector * 0.55
         + root.CFrame.LookVector * 0.55 + Vector3.new(0, 0.25, 0)
-    local visual, body = ToasterVisual.Create("CarriedToaster",
-        CFrame.new(center) * root.CFrame.Rotation, false)
+    local visual: Model
+    local body: BasePart
+    if carry.itemId == "toaster" then
+        visual, body = ToasterVisual.Create("CarriedToaster",
+            CFrame.new(center) * root.CFrame.Rotation, false)
+    else
+        local height = ItemVisuals.Height(carry.itemId)
+        local carryScale = math.min(1, 1.8 / height)
+        visual, body = ItemVisuals.Create(carry.itemId, "CarriedStock",
+            CFrame.new(center) * root.CFrame.Rotation, false, carryScale)
+    end
     local weld = Instance.new("WeldConstraint")
     weld.Name = "CarryAttachment"
     weld.Part0 = hand
@@ -265,9 +313,10 @@ local function attachCarry(player: Player, carry: any): boolean
     player:SetAttribute("CarryId", carry.carryId)
     player:SetAttribute("CarryRunId", carry.runId)
     player:SetAttribute("CarryItemId", carry.itemId)
-    player:SetAttribute("CurrentCarryItem", ItemCatalog.ById.toaster.name)
-    player:SetAttribute("CarryBehavior", ItemCatalog.ById.toaster.carry)
-    player:SetAttribute("CarryDestination", "Museum Protected Stand")
+    player:SetAttribute("CarrySource", if carry.targetId == TARGET_ID then "Tutorial" else "Depot")
+    player:SetAttribute("CurrentCarryItem", ItemCatalog.ById[carry.itemId].name)
+    player:SetAttribute("CarryBehavior", ItemCatalog.ById[carry.itemId].carry)
+    player:SetAttribute("CarryDestination", "Museum Green Drop-Off")
     setPickupEligible(player)
     return true
 end
@@ -275,10 +324,15 @@ end
 local function completePickup(player: Player, requestId: string)
     local session = state:Get(player.UserId)
     if session == nil or session.kind ~= "Pending" or session.requestId ~= requestId then return end
-    if not tutorialEligible(player) or not validPickupPosition(player) then
+    local tutorial = session.targetId == TARGET_ID
+    if not (if tutorial then tutorialEligible(player) else publicEligible(player))
+        or not validPickupPosition(player, session.targetId) then
         state:Cancel(player.UserId, requestId)
+        if not tutorial then
+            PublicStockService.Cancel(session.targetId, player.UserId, requestId)
+        end
         setPickupEligible(player)
-        tell(player, "Move closer to the toaster and keep it in sight.", "Error")
+        tell(player, "Move closer to the stock and keep it in sight.", "Error")
         return
     end
     local carry, status = state:Complete(player.UserId, requestId)
@@ -288,33 +342,71 @@ local function completePickup(player: Player, requestId: string)
         end
         return
     end
+    if not tutorial then
+        local itemId = PublicStockService.Claim(session.targetId, player.UserId,
+            requestId, carry.runId)
+        if itemId == nil then
+            state:Drop(player.UserId, carry.carryId)
+            setPickupEligible(player)
+            tell(player, "Another robber took that stock first. Try another pedestal.", "Error")
+            return
+        end
+        carry.itemId = itemId
+    end
     if not attachCarry(player, carry) then
         state:Drop(player.UserId, carry.carryId)
+        if not tutorial then PublicStockService.Fail(carry.runId) end
         setPickupEligible(player)
         return
     end
-    tell(player, "Toaster secured. Carry it to your museum drop-off!", "Success")
+    tell(player, ItemCatalog.ById[carry.itemId].name
+        .. " secured. Carry it to your museum drop-off!", "Success")
 end
 
 local function beginPickup(player: Player, targetId: any, requestId: any)
     local now = os.clock()
     if now - (lastBegin[player.UserId] or -math.huge) < 0.15 then return end
     lastBegin[player.UserId] = now
-    if type(targetId) ~= "string" or targetId ~= TARGET_ID
+    if type(targetId) ~= "string"
         or type(requestId) ~= "string" or #requestId < 8 or #requestId > 64
         or string.match(requestId, "^[%w%-]+$") == nil then return end
-    if prompt == nil or prompt.Parent == nil or not tutorialEligible(player) then return end
-    if not validPickupPosition(player) then
-        tell(player, "Move closer to the toaster and keep it in sight.", "Error")
+    local tutorial = targetId == TARGET_ID
+    local pickupPrompt = if tutorial then prompt else PublicStockService.GetPrompt(targetId)
+    if pickupPrompt == nil or pickupPrompt.Parent == nil then return end
+    if not (if tutorial then tutorialEligible(player) else publicEligible(player)) then
+        if not tutorial then
+            tell(player, "Earn your first displayed dollar before taking public stock.", "Info")
+        end
         return
     end
-    local pending = state:Begin(player.UserId, requestId)
-    if pending ~= nil then setPickupEligible(player) end
+    if not validPickupPosition(player, targetId) then
+        tell(player, "Move closer to the stock and keep it in sight.", "Error")
+        return
+    end
+    local pending, status = state:Begin(player.UserId, requestId, targetId,
+        if tutorial then "toaster" else PublicStockService.GetItemId(targetId))
+    if pending == nil then
+        if status == "AlreadyCarrying" then tell(player, "Deliver your current item first.", "Info") end
+        return
+    end
+    if not tutorial then
+        local held = PublicStockService.Begin(targetId, player.UserId, requestId)
+        if not held then
+            state:Cancel(player.UserId, requestId)
+            tell(player, "That pedestal is empty. Check its restock timer.", "Info")
+            return
+        end
+    end
+    setPickupEligible(player)
 end
 
 local function cancelPickup(player: Player, requestId: any)
     if type(requestId) ~= "string" then return end
+    local session = state:Get(player.UserId)
     if state:Cancel(player.UserId, requestId) then
+        if session ~= nil and session.targetId ~= TARGET_ID then
+            PublicStockService.Cancel(session.targetId, player.UserId, requestId)
+        end
         setPickupEligible(player)
     end
 end
@@ -322,14 +414,19 @@ end
 local function dropCarry(player: Player, carryId: any)
     if type(carryId) ~= "string" then return end
     if deliveryLocked[player.UserId] then return end
+    local session = state:Get(player.UserId)
     if not state:Drop(player.UserId, carryId) then return end
+    if session ~= nil and session.targetId ~= TARGET_ID then
+        NpcFeedback.Record(player, "dropped_carry", session.runId)
+        PublicStockService.Fail(session.runId)
+    end
     destroyVisual(player)
     restoreArmPose(player)
     carryTelemetry[player.UserId] = nil
     clearCarryDisplay(player)
     restoreSpeed(player)
     setPickupEligible(player)
-    tell(player, "Toaster returned to the depot. You can try again.", "Info")
+    tell(player, "Carry lost. The pedestal will restock soon.", "Info")
 end
 
 local function characterAdded(player: Player, character: Model)
@@ -337,7 +434,7 @@ local function characterAdded(player: Player, character: Model)
     if humanoid == nil or not humanoid:IsA("Humanoid") then return end
     humanoid.WalkSpeed = Balance.NORMAL_WALK_SPEED
     humanoid.Died:Connect(function()
-        if player.Character == character then clearPlayer(player) end
+        if player.Character == character then clearPlayer(player, "dropped_carry") end
     end)
 end
 
@@ -361,7 +458,7 @@ local function playerAdded(player: Player)
         task.spawn(characterAdded, player, character)
     end)
     player.CharacterRemoving:Connect(function()
-        clearPlayer(player)
+        clearPlayer(player, "dropped_carry")
     end)
     if player.Character ~= nil then task.spawn(characterAdded, player, player.Character) end
     setPickupEligible(player)
@@ -374,7 +471,8 @@ function CarryService.GetActiveCarry(player: Player): any?
         carryId = session.carryId,
         runId = session.runId,
         itemId = session.itemId,
-        tutorial = true,
+        tutorial = session.targetId == TARGET_ID,
+        targetId = session.targetId,
         replay = player:GetAttribute("TutorialReplayActive") == true,
     }
 end
@@ -429,7 +527,12 @@ function CarryService.SetDeliveryLocked(player: Player, carryId: string, locked:
 end
 
 function CarryService.FinishDelivery(player: Player, carryId: string)
+    local session = state:Get(player.UserId)
     if not state:Drop(player.UserId, carryId) then return end
+    if session ~= nil and session.targetId ~= TARGET_ID then
+        PublicStockService.Finish(session.runId)
+        NpcFeedback.Success(player)
+    end
     deliveryLocked[player.UserId] = nil
     carryTelemetry[player.UserId] = nil
     destroyVisual(player)
@@ -446,6 +549,30 @@ end
 
 function CarryService.AbortCarry(player: Player, carryId: string)
     dropCarry(player, carryId)
+end
+
+function CarryService.TryGuardCapture(player: Player, carryId: string): boolean
+    local session = state:Get(player.UserId)
+    local profile = ProfileService.GetSnapshot(player)
+    if session == nil or session.kind ~= "Carrying" or session.carryId ~= carryId
+        or session.targetId == TARGET_ID or player:GetAttribute("TutorialReplayActive") == true
+        or profile == nil or TutorialProgress.FirstItemGuardProtected(profile)
+        or deliveryLocked[player.UserId] then return false end
+    NpcFeedback.Record(player, "capture", session.runId)
+    clearPlayer(player)
+    local character, humanoid = livingCharacter(player)
+    if humanoid then
+        player:SetAttribute("GuardStaggerUntil", os.clock() + 0.6)
+        humanoid.WalkSpeed = 6
+        task.delay(0.6, function()
+            if player.Character == character and humanoid.Parent and humanoid.Health > 0
+                and state:Get(player.UserId) == nil and humanoid.WalkSpeed == 6 then
+                humanoid.WalkSpeed = Balance.NORMAL_WALK_SPEED
+            end
+        end)
+    end
+    tell(player, "Caught! This depot item will restock. Your cash and collection are safe.", "Info")
+    return true
 end
 
 function CarryService.Start()
@@ -482,11 +609,27 @@ function CarryService.Start()
     replayRemote.OnServerEvent:Connect(startTutorialReplay)
     if prompt ~= nil then
         prompt.Triggered:Connect(function(player: Player)
-            local pending = state:Trigger(player.UserId)
-            if pending == nil then return end
+            local pending = state:Get(player.UserId)
+            if pending == nil or pending.kind ~= "Pending"
+                or pending.targetId ~= TARGET_ID then return end
+            state:Trigger(player.UserId)
             local remaining = math.max(0, Balance.PICKUP_HOLD_SECONDS - (os.clock() - pending.startedAt))
             task.delay(remaining, completePickup, player, pending.requestId)
         end)
+    end
+    for _, targetId in { "depot.public_01", "depot.public_02", "depot.public_03" } do
+        local publicPrompt = PublicStockService.GetPrompt(targetId)
+        if publicPrompt ~= nil then
+            publicPrompt.Triggered:Connect(function(player: Player)
+                local pending = state:Get(player.UserId)
+                if pending == nil or pending.kind ~= "Pending"
+                    or pending.targetId ~= targetId then return end
+                state:Trigger(player.UserId)
+                local remaining = math.max(0, Balance.PICKUP_HOLD_SECONDS
+                    - (os.clock() - pending.startedAt))
+                task.delay(remaining, completePickup, player, pending.requestId)
+            end)
+        end
     end
 
     Players.PlayerAdded:Connect(playerAdded)
@@ -504,8 +647,14 @@ function CarryService.Start()
                 local session = state:Get(player.UserId)
                 if session ~= nil and session.kind == "Pending" then
                     if os.clock() - session.startedAt > PICKUP_TIMEOUT_SECONDS
-                        or not tutorialEligible(player) or not validPickupPosition(player) then
+                        or not (if session.targetId == TARGET_ID
+                            then tutorialEligible(player) else publicEligible(player))
+                        or not validPickupPosition(player, session.targetId) then
                         state:Cancel(player.UserId, session.requestId)
+                        if session.targetId ~= TARGET_ID then
+                            PublicStockService.Cancel(session.targetId, player.UserId,
+                                session.requestId)
+                        end
                         setPickupEligible(player)
                     end
                 elseif session ~= nil and session.kind == "Carrying" then

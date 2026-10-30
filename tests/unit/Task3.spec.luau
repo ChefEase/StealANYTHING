@@ -147,7 +147,7 @@ store = FakeStore.new()
 store.records["player:105"] = { value = copy(fullV0), metadata = { auditTag = "keep" }, userIds = { 105 } }
 serverA = repository(store, "migration")
 local migrated, migrationStatus = serverA:Load(105)
-assert(migrationStatus == "Ready" and migrated.schemaVersion == 3)
+assert(migrationStatus == "Ready" and migrated.schemaVersion == 5)
 assert(migrated.cash == 975 and migrated.accreditation == 1)
 assert(migrated.displaySlots.protected == "toaster")
 assert(migrated.displaySlots.exposed_01 == nil)
@@ -173,7 +173,7 @@ assert(serverA:Release(106))
 
 -- A future or malformed profile is left untouched, never reset to defaults.
 store = FakeStore.new()
-store.records["player:107"] = { value = { schemaVersion = 4, cash = 99999,
+store.records["player:107"] = { value = { schemaVersion = 6, cash = 99999,
     registered = {} }, metadata = {}, userIds = { 107 } }
 serverA = repository(store, "future")
 local bad, badStatus = serverA:Load(107)

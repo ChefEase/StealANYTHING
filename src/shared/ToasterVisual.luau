@@ -47,6 +47,9 @@ function ToasterVisual.ApplyAppearance(model: Model)
             if style ~= nil then
                 descendant.Color = style.color
                 descendant.Material = style.material
+                if style == gold then
+                    descendant.MaterialVariant = "StealAnythingAntiqueGold"
+                end
             end
         end
     end

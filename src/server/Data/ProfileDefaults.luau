@@ -9,7 +9,7 @@ local TierOne = require(Shared.Task11TierOneContract)
 
 type PlayerProfile = Types.PlayerProfile
 
-local CURRENT_SCHEMA_VERSION = 3
+local CURRENT_SCHEMA_VERSION = 5
 
 local function newContract(definitionId: string, nowUnix: number, newId: () -> string): Types.Contract
     local definition = Contracts.ById[definitionId]
@@ -46,6 +46,9 @@ local function create(nowUnix: number, newId: () -> string): PlayerProfile
         incomeRemainder = 0,
         exhibits = {},
         displaySlots = {},
+        collectionIndex = {},
+        publicDisplayApproved = {},
+        publicDisplayMode = "Auto",
         museum = table.clone(TierOne.Contract.defaults),
         accreditation = 0,
         lifetime = {
@@ -67,6 +70,7 @@ local function create(nowUnix: number, newId: () -> string): PlayerProfile
             reduceMotion = false,
             lowEffects = false,
             travelTipsEnabled = true,
+            collectionTutorialDone = false,
         },
         cosmetics = {},
         recentOperations = {},

@@ -282,6 +282,42 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
     local mapCaption = label("Caption", mapTab, "MAP", 13, WHITE, true)
     mapCaption.ZIndex = 105
 
+    local collectionShadow = frame("CollectionShadow", sidebar, Color3.fromRGB(2, 8, 7))
+    collectionShadow.ZIndex = 103
+    local collectionTab = button("CollectionTab", sidebar, "")
+    collectionTab.ZIndex = 104
+    local collectionStroke = Instance.new("UIStroke")
+    collectionStroke.Color = Color3.fromRGB(2, 8, 7)
+    collectionStroke.Thickness = 3
+    collectionStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    collectionStroke.Parent = collectionTab
+    local collectionIcon = frame("IconTile", collectionTab, ACCENT)
+    collectionIcon.ZIndex = 105
+    local collectionGlyph = label("Icon", collectionIcon, "C", 19, INK, true)
+    collectionGlyph.TextXAlignment = Enum.TextXAlignment.Center
+    collectionGlyph.Size = UDim2.fromScale(1, 1)
+    collectionGlyph.ZIndex = 106
+    local collectionCaption = label("Caption", collectionTab, "COLLECTION", 13, WHITE, true)
+    collectionCaption.ZIndex = 105
+
+    local travelShadow = frame("TravelShadow", sidebar, Color3.fromRGB(2, 8, 7))
+    travelShadow.ZIndex = 103
+    local travelTab = button("TravelTab", sidebar, "")
+    travelTab.ZIndex = 104
+    local travelStroke = Instance.new("UIStroke")
+    travelStroke.Color = Color3.fromRGB(2, 8, 7)
+    travelStroke.Thickness = 3
+    travelStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    travelStroke.Parent = travelTab
+    local travelIcon = frame("IconTile", travelTab, ACCENT)
+    travelIcon.ZIndex = 105
+    local travelGlyph = label("Icon", travelIcon, "R", 19, INK, true)
+    travelGlyph.TextXAlignment = Enum.TextXAlignment.Center
+    travelGlyph.Size = UDim2.fromScale(1, 1)
+    travelGlyph.ZIndex = 106
+    local travelCaption = label("Caption", travelTab, "TRAVEL", 13, WHITE, true)
+    travelCaption.ZIndex = 105
+
     local content = frame("Content", panel, PANEL)
     content.Position = UDim2.fromOffset(180, 80)
     content.ZIndex = 102
@@ -299,6 +335,20 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
     wardrobePane.ScrollBarThickness = 5
     wardrobePane.ZIndex = 103
     wardrobePane.Parent = content
+    local collectionPane = Instance.new("ScrollingFrame")
+    collectionPane.Name = "Collection"
+    collectionPane.Size = UDim2.fromScale(1, 1)
+    collectionPane.BackgroundColor3 = PANEL
+    collectionPane.BorderSizePixel = 0
+    collectionPane.ClipsDescendants = true
+    collectionPane.ScrollingDirection = Enum.ScrollingDirection.Y
+    collectionPane.ScrollBarThickness = 5
+    collectionPane.ZIndex = 103
+    collectionPane.Parent = content
+    local travelPane = frame("Travel", content, PANEL)
+    travelPane.Size = UDim2.fromScale(1, 1)
+    travelPane.Visible = false
+    travelPane.ZIndex = 103
     local tutorialTitle = label("Title", tutorialPane, "FIRST HEIST", 24, WHITE, true)
     tutorialTitle.Position = UDim2.fromOffset(26, 24)
     tutorialTitle.Size = UDim2.new(1, -52, 0, 36)
@@ -565,12 +615,18 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
         tutorialPane.Visible = tab == "Tutorial"
         wardrobePane.Visible = tab == "Wardrobe"
         mapPane.Visible = tab == "Map"
+        collectionPane.Visible = tab == "Collection"
+        travelPane.Visible = tab == "Travel"
         tutorialTab.BackgroundColor3 = if tab == "Tutorial" then Theme.Selected else PANEL
         wardrobeTab.BackgroundColor3 = if tab == "Wardrobe" then Theme.Selected else PANEL
         mapTab.BackgroundColor3 = if tab == "Map" then Theme.Selected else PANEL
+        collectionTab.BackgroundColor3 = if tab == "Collection" then Theme.Selected else PANEL
+        travelTab.BackgroundColor3 = if tab == "Travel" then Theme.Selected else PANEL
         tutorialCaption.TextColor3 = if tab == "Tutorial" then WHITE else MUTED
         wardrobeCaption.TextColor3 = if tab == "Wardrobe" then WHITE else MUTED
         mapCaption.TextColor3 = if tab == "Map" then WHITE else MUTED
+        collectionCaption.TextColor3 = if tab == "Collection" then WHITE else MUTED
+        travelCaption.TextColor3 = if tab == "Travel" then WHITE else MUTED
         layout()
     end
 
@@ -641,25 +697,39 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
         playerChip.Position = UDim2.new(1, -158, 0, if compact then 10 else 17)
         playerChip.Size = UDim2.fromOffset(96, 37)
         playerChip.Visible = width >= 530
-        local tabHeight = if compact then 44 else 50
-        tutorialTab.Position = UDim2.fromOffset(7, if compact then 10 else 20)
+        local tabHeight = math.clamp(math.floor((height - headerHeight - 24) / 5) - 5, 28, 50)
+        local tabGap = if compact then 5 else 7
+        local tabStart = if compact then 4 else 12
+        local offsets = {}
+        for index = 1, 5 do
+            offsets[index] = tabStart + (index - 1) * (tabHeight + tabGap)
+        end
+        tutorialTab.Position = UDim2.fromOffset(7, offsets[1])
         tutorialTab.Size = UDim2.new(1, -15, 0, tabHeight)
-        wardrobeTab.Position = UDim2.fromOffset(7, if compact then 62 else 82)
+        wardrobeTab.Position = UDim2.fromOffset(7, offsets[2])
         wardrobeTab.Size = tutorialTab.Size
-        mapTab.Position = UDim2.fromOffset(7, if compact then 114 else 144)
+        mapTab.Position = UDim2.fromOffset(7, offsets[3])
         mapTab.Size = tutorialTab.Size
-        tutorialShadow.Position = UDim2.fromOffset(10, (if compact then 10 else 20) + 4)
+        collectionTab.Position = UDim2.fromOffset(7, offsets[4])
+        collectionTab.Size = tutorialTab.Size
+        travelTab.Position = UDim2.fromOffset(7, offsets[5])
+        travelTab.Size = tutorialTab.Size
+        tutorialShadow.Position = UDim2.fromOffset(10, offsets[1] + 4)
         tutorialShadow.Size = tutorialTab.Size
-        wardrobeShadow.Position = UDim2.fromOffset(10, (if compact then 62 else 82) + 4)
+        wardrobeShadow.Position = UDim2.fromOffset(10, offsets[2] + 4)
         wardrobeShadow.Size = wardrobeTab.Size
-        mapShadow.Position = UDim2.fromOffset(10, (if compact then 114 else 144) + 4)
+        mapShadow.Position = UDim2.fromOffset(10, offsets[3] + 4)
         mapShadow.Size = mapTab.Size
-        local iconSize = if compact then 28 else 34
-        for _, icon in { tutorialIcon, wardrobeIcon, mapIcon } do
+        collectionShadow.Position = UDim2.fromOffset(10, offsets[4] + 4)
+        collectionShadow.Size = collectionTab.Size
+        travelShadow.Position = UDim2.fromOffset(10, offsets[5] + 4)
+        travelShadow.Size = travelTab.Size
+        local iconSize = if compact then 22 else math.min(34, tabHeight - 8)
+        for _, icon in { tutorialIcon, wardrobeIcon, mapIcon, collectionIcon, travelIcon } do
             icon.Position = UDim2.fromOffset(7, (tabHeight - iconSize) / 2)
             icon.Size = UDim2.fromOffset(iconSize, iconSize)
         end
-        for _, caption in { tutorialCaption, wardrobeCaption, mapCaption } do
+        for _, caption in { tutorialCaption, wardrobeCaption, mapCaption, collectionCaption, travelCaption } do
             caption.Position = UDim2.fromOffset(iconSize + 12, 0)
             caption.Size = UDim2.new(1, -iconSize - 14, 1, 0)
             caption.TextSize = if width < 530 then 10 else 13
@@ -998,6 +1068,8 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
     tutorialTab.Activated:Connect(function() setTab("Tutorial") end)
     wardrobeTab.Activated:Connect(function() setTab("Wardrobe") end)
     mapTab.Activated:Connect(function() setTab("Map"); drawMap() end)
+    collectionTab.Activated:Connect(function() setTab("Collection") end)
+    travelTab.Activated:Connect(function() setTab("Travel") end)
     replay.Activated:Connect(function()
         local network = ReplicatedStorage:WaitForChild("Network")
         local request = network:WaitForChild("StartTutorialReplay") :: RemoteEvent
@@ -1048,7 +1120,11 @@ function OperationsMenu.Start(player: Player, screen: ScreenGui)
             task.wait(0.5)
         end
     end)
-    return wardrobePane
+    return wardrobePane, collectionPane, travelPane, function()
+        setTab("Collection")
+        collectionPane.CanvasPosition = Vector2.zero
+        setOpen(true)
+    end
 end
 
 return table.freeze(OperationsMenu)

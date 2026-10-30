@@ -1,4 +1,5 @@
 --!strict
+local SignatureVfx = require(script.Parent.SignatureVfx)
 
 local TweenService = game:GetService("TweenService")
 
@@ -417,29 +418,6 @@ local function outfit(character: Model, folder: Folder, id: string, masked: bool
                 Vector3.new(0, head.Size.Y * 0.65, -head.Size.Z * 0.42),
                 Vector3.new(head.Size.X * 0.78, 0.08, 0.06), colors.trim, Enum.Material.Metal)
         end
-        local attachment = Instance.new("Attachment")
-        attachment.Name = "LegendarySparkAttachment"
-        attachment.Parent = torso
-        attachment.Position = Vector3.new(0, torso.Size.Y * 0.2, front - 0.4)
-        local light = Instance.new("PointLight")
-        light.Name = "LegendaryWarmGlow"
-        light.Color = colors.trim
-        light.Brightness = 1.5
-        light.Range = 9
-        light.Parent = attachment
-        local particles = Instance.new("ParticleEmitter")
-        particles.Name = "LegendarySparks"
-        particles.Rate = 13
-        particles.Lifetime = NumberRange.new(0.5, 1.1)
-        particles.Speed = NumberRange.new(0.3, 0.8)
-        particles.LightEmission = 1
-        particles.Color = ColorSequence.new(colors.trim)
-        particles.Size = NumberSequence.new(0.12)
-        particles.Parent = attachment
-        local marker = Instance.new("ObjectValue")
-        marker.Name = "LegendarySparkAttachment"
-        marker.Value = attachment
-        marker.Parent = folder
     end
 end
 
@@ -656,10 +634,10 @@ local function glow(character: Model, folder: Folder, masked: boolean)
         auraSound.Name = "PhantomAuraSound"
         auraSound.SoundId = "rbxassetid://113241850049300"
         auraSound.Looped = true
-        auraSound.Volume = 0.16
-        auraSound.RollOffMode = Enum.RollOffMode.Inverse
-        auraSound.RollOffMinDistance = 5
-        auraSound.RollOffMaxDistance = 32
+        auraSound.Volume = 0.025
+        auraSound.RollOffMode = Enum.RollOffMode.InverseTapered
+        auraSound.RollOffMinDistance = 2
+        auraSound.RollOffMaxDistance = 12
         auraSound.Parent = attachment
         auraSound:Play()
     end
@@ -884,7 +862,11 @@ function WardrobeAppearance.Apply(character: Model, loadout: {[string]: string})
         mask(character, folder, "starter_mask")
     end
     if loadout.Body == "getaway_bag" then bag(character, folder) end
-    if loadout.Special == "phantom_glow" or loadout.Outfit == "neon_phantom_outfit" then
+    if loadout.Outfit == "shadow_king_outfit" or loadout.Outfit == "legendary_animated_outfit"
+        or loadout.Outfit == "neon_phantom_outfit" then
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if root and root:IsA("BasePart") then SignatureVfx.Attach(root, folder, loadout.Outfit) end
+    elseif loadout.Special == "phantom_glow" then
         glow(character, folder, loadout.Face == "ski_mask")
     end
 end

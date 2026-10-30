@@ -102,7 +102,7 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
         local museum = owned and owned:FindFirstChild("Museum_" .. plotId)
         if museum == nil or museum:GetAttribute("CloneId") ~= cloneId
             or museum:GetAttribute("OwnerUserId") ~= player.UserId then return end
-        local target = museum:FindFirstChild("ProtectedDisplaySocket", true)
+        local target = museum:FindFirstChild("ReceivingZone", true)
         if target ~= nil and target:IsA("BasePart") then museumTarget = target end
     end
     player:GetAttributeChangedSignal("AssignedPlotId"):Connect(refreshMuseumTarget)
@@ -280,12 +280,12 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
             local direction = toTarget.Unit
             arrow.Rotation = math.deg(math.atan2(direction:Dot(right.Unit), direction:Dot(forward.Unit)))
         end
-        distance.Text = tostring(studs) .. " STUDS TO " .. (if carrying then "PROTECTED STAND" else "DEPOT")
+        distance.Text = tostring(studs) .. " STUDS TO " .. (if carrying then "GREEN DROP-OFF CARPET" else "DEPOT")
         if carrying then
             instruction.Text = if player:GetAttribute("AtDropOff") == true
-                then "Hold " .. deliverName() .. " to deliver the toaster."
-                elseif phone then "Follow arrow to the exhibit stand."
-                else "Follow the arrow to the exhibit stand."
+                then (if phone then "Stand here to deliver the toaster."
+                    else "Press " .. deliverName() .. " to deliver the toaster.")
+                else "Stand on the green carpet to deliver."
         else
             instruction.Text = if studs <= 12
                 then "Hold " .. interactName() .. " to take the toaster."

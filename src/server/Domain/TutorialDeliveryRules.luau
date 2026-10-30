@@ -30,6 +30,7 @@ function TutorialDeliveryRules.Apply(profile: any, nowUnix: number): (string, st
         acquisition = "Tutorial",
         recoveryJobsDone = 0,
     }
+    profile.collectionIndex.toaster = true
     profile.displaySlots.protected = "toaster"
     profile.lifetime.npcDeliveries += 1
     profile.lifetime.distinctRegistered += 1

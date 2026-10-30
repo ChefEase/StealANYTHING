@@ -8,6 +8,8 @@ type Pending = {
     runId: string,
     startedAt: number,
     triggered: boolean,
+    targetId: string,
+    itemId: string,
 }
 
 type Carry = {
@@ -15,6 +17,7 @@ type Carry = {
     carryId: string,
     runId: string,
     itemId: string,
+    targetId: string,
 }
 
 type Session = Pending | Carry
@@ -34,10 +37,12 @@ function TutorialCarryState:Get(userId: number): Session?
     return self.sessions[userId]
 end
 
-function TutorialCarryState:Begin(userId: number, requestId: string): (Pending?, string)
+function TutorialCarryState:Begin(userId: number, requestId: string,
+    targetId: string?, itemId: string?): (Pending?, string)
     local existing = self.sessions[userId]
     if existing ~= nil then
-        if existing.kind == "Pending" and existing.requestId == requestId then
+        if existing.kind == "Pending" and existing.requestId == requestId
+            and existing.targetId == (targetId or "depot.tutorial_pedestal") then
             return existing, "Existing"
         end
         return nil, if existing.kind == "Carrying" then "AlreadyCarrying" else "Busy"
@@ -49,6 +54,8 @@ function TutorialCarryState:Begin(userId: number, requestId: string): (Pending?,
         runId = self.newId(),
         startedAt = self.now(),
         triggered = false,
+        targetId = targetId or "depot.tutorial_pedestal",
+        itemId = itemId or "toaster",
     }
     self.sessions[userId] = pending
     return pending, "Started"
@@ -79,7 +86,8 @@ function TutorialCarryState:Complete(userId: number, requestId: string): (Carry?
         kind = "Carrying",
         carryId = self.newId(),
         runId = session.runId,
-        itemId = "toaster",
+        itemId = session.itemId,
+        targetId = session.targetId,
     }
     self.sessions[userId] = carry
     return carry, "Carrying"

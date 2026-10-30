@@ -6,7 +6,7 @@ On a new profile, a screen arrow and world marker lead from the museum to the pe
 
 On a phone, the smaller tutorial card sits near the lower center. It hides while the toaster pickup prompt is open, then returns once the player picks up the toaster. The pickup prompt says TAP. At a valid drop-off, the guide makes room for a visible HOLD TO DELIVER button; a 0.5-second hold completes delivery. The button is hidden away from the museum drop-off. Phone cash, carry, interaction, notification, and tutorial panels use the safe screen area and avoid the movement controls.
 
-The tutorial is one complete first NPC delivery and income loop. Public depot restocks, normal guard pressure, a second heist, and raid training remain later development tasks. Until those exist, the objective after completion says the toaster is on display rather than sending players to unavailable stock.
+The tutorial is one complete first NPC delivery and income loop. The next objective points to the three public depot pedestals after the first displayed dollar. Guard pressure and raid training remain later development tasks.
 
 ## Validation and persistence
 
@@ -43,12 +43,12 @@ After the second museum entrance geometry correction, the same in-memory deliver
 
 - Two real Studio clients picking up personal targets at once.
 - Physical phone and controller pass for the guide, carry HUD, and hold actions. The iPhone 16 Studio simulator pass is complete.
-- An unfamiliar person's end-to-end tutorial playtest using `docs/playtest.md`. The second-run objective is visible; actual public stock and guard training remain in M2.
+- An unfamiliar person's end-to-end tutorial playtest using `docs/playtest.md`. The second-run objective and public stock are available; guard training remains in M2.
 
 ## Tasks 9–10 follow-up — 12 October 2026
 
 The updated `TutorialLoop.spec.luau` passed in Studio Edit using a fresh clone of the synced server modules. A tier-1 and tier-5 copy of the same displayed toaster each earned $1 in ten active seconds; a stored or Missing toaster earned zero. The earlier fractional payout, one-hour offline, duplicate delivery, and rejoin checks still passed. This closes the Task 9 pure income invariant. The tier field remains a target-only test field until the Task 12 migration, so Task 19 must repeat it against real tier upgrades.
 
-Task 10 adds a saved tutorial step when the first displayed dollar arrives. Step 1 now teaches the active-server income; Step 2 shows the next public depot heist as upcoming. The step transition uses a durable idempotent profile operation after the routine income settlement; arbitrary routine tutorial mutations remain rejected. The in-memory test passed the transition and repeated operation, rejected an illegal step 3 routine mutation, and rejoined with step 2 and one toaster. `docs/playtest.md` contains the unfamiliar-player and device script. Public stock and guard behavior are not active in this build.
+Task 10 adds a saved tutorial step when the first displayed dollar arrives. Step 1 teaches the active-server income; Step 2 points to the public depot heist. The step transition uses a durable idempotent profile operation after the routine income settlement; arbitrary routine tutorial mutations remain rejected. The in-memory test passed the transition and repeated operation, rejected an illegal step 3 routine mutation, and rejoined with step 2 and one toaster. `docs/playtest.md` contains the unfamiliar-player and device script. Public stock is active; guard behavior remains scheduled for Task 14.
 
 In Studio Play, an existing development profile loaded at step 1 and committed `TutorialProgress / FirstIncomeSeen` after its first displayed payout. A data-store read showed revision 9 and step 2, with the protected toaster still registered. The client objective read `NEXT: DEPOT HEIST COMING SOON`. A normal test-player disconnect released the metadata lease and saved cash; rejoining restored `Ready`, step 2, one toaster, the $6/min rate, and the same objective. The guide at step 1 read `WATCH YOUR REWARD` and told the player to watch cash rise. A rapid Studio Stop/Play before disconnect left the prior metadata lease active and the new session waited for it; use a normal leave or wait for the lease to expire when testing rejoin. No runtime errors appeared in the Studio console.

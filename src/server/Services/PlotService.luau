@@ -6,9 +6,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Plots = require(ReplicatedStorage.Shared.PlotDefinitions)
-local Items = require(ReplicatedStorage.Shared.ItemCatalog)
 local TierOne = require(ReplicatedStorage.Shared.Task11TierOneContract)
-local ToasterVisual = require(ReplicatedStorage.Shared.ToasterVisual)
+local Catalog = require(ReplicatedStorage.Shared.ItemCatalog)
+local ItemVisuals = require(ReplicatedStorage.Shared.ItemVisuals)
 local ProfileService = require(script.Parent.ProfileService)
 local WorldCollision = require(script.Parent.WorldCollision)
 local PlotProtection = require(script.Parent.PlotProtection)
@@ -26,6 +26,86 @@ local pack: Folder? = nil
 local assignments: {[number]: Assignment} = {}
 local occupied: {[string]: number} = {}
 local districtOffset = Vector3.new(610, 0.5, 0)
+local socket: (Model, string, string) -> BasePart?
+local SAFE_BLUE = Color3.fromRGB(105, 175, 255)
+local PUBLIC_GOLD = Color3.fromRGB(244, 197, 97)
+local TIER_COLORS = {
+    Common = Color3.fromRGB(80, 222, 188),
+    Uncommon = Color3.fromRGB(106, 174, 255),
+    Rare = Color3.fromRGB(199, 140, 255),
+    Legendary = Color3.fromRGB(255, 201, 106),
+}
+
+local function updateStandPlaques(museum: Model)
+    for _, entry in {
+        { name = "ProtectedDisplaySocketLabel", text = "SAFE  /  HALF INCOME", color = SAFE_BLUE },
+        { name = "Exposed01SocketLabel", text = "PUBLIC 1  /  FULL INCOME", color = PUBLIC_GOLD },
+        { name = "Exposed02SocketLabel", text = "PUBLIC 2  /  FULL INCOME", color = PUBLIC_GOLD },
+    } do
+        local plaque = museum:FindFirstChild(entry.name, true)
+        if plaque and plaque:IsA("BasePart") then
+            plaque.Size = Vector3.new(plaque.Size.X, 0.9, plaque.Size.Z)
+            plaque.CFrame *= CFrame.new(0, 0.17, 0)
+        end
+        local surface = plaque and plaque:FindFirstChildOfClass("SurfaceGui")
+        local caption = surface and surface:FindFirstChildOfClass("TextLabel")
+        if caption then
+            caption.Text = entry.text
+            caption.TextColor3 = entry.color
+            caption.TextScaled = true
+            caption.TextWrapped = true
+        end
+    end
+end
+
+local function addDisplayEffects(display: Model, target: BasePart,
+    _slotId: string, itemId: string)
+    local tier = Catalog.ById[itemId].tier
+    local count = ({ Common = 1, Uncommon = 2, Rare = 3, Legendary = 4 })[tier] or 1
+    local color = TIER_COLORS[tier] or TIER_COLORS.Common
+    -- Discrete tier jewels sit on the plinth, leaving the exhibit unobstructed.
+    for index = 1, count do
+        local jewel = Instance.new("Part")
+        jewel.Name = "ExhibitTierJewel"
+        jewel.Size = Vector3.new(0.16, 0.16, 0.08)
+        jewel.CFrame = target.CFrame * CFrame.new((index - (count + 1) / 2) * 0.27, -1.03, -1.3)
+            * CFrame.Angles(0, 0, math.pi / 4)
+        jewel.Material = Enum.Material.Neon
+        jewel.Color = color
+        jewel.Anchored = true
+        jewel.CanCollide = false
+        jewel.CanTouch = false
+        jewel.CanQuery = false
+        jewel.CastShadow = false
+        jewel.Parent = display
+    end
+end
+
+local function addStandRulePrompts(museum: Model)
+    for _, slotId in TierOne.Contract.socketIds do
+        local name = TierOne.Contract.socketNamesById[slotId]
+        local target = socket(museum, name, slotId)
+        if target == nil then continue end
+        local prompt = Instance.new("ProximityPrompt")
+        prompt.Name = "StandRulesPrompt"
+        prompt.ActionText = "How stands work"
+        prompt.ObjectText = if slotId == "protected" then "Protected stand" else "Public stand"
+        prompt.KeyboardKeyCode = Enum.KeyCode.F
+        prompt.GamepadKeyCode = Enum.KeyCode.ButtonY
+        prompt.HoldDuration = 0
+        prompt.MaxActivationDistance = 10
+        prompt.RequiresLineOfSight = false
+        prompt.Style = Enum.ProximityPromptStyle.Default
+        prompt:SetAttribute("DefaultPromptStyle", true)
+        prompt:SetAttribute("StandRuleSlot", slotId)
+        local helpPoint = Instance.new("Attachment")
+        helpPoint.Name = "StandRulesHelpPoint"
+        local side = if slotId == "exposed_01" then -7 else 7
+        helpPoint.Position = Vector3.new(side, -2.2, -5)
+        helpPoint.Parent = target
+        prompt.Parent = helpPoint
+    end
+end
 
 local function clearEntranceBlockers(museum: Instance)
     for _, name in { "RaidEntrance", "Approach" } do
@@ -210,6 +290,14 @@ local function addMuseumReturnPad(expansion: Model)
         Vector3.new(12, 0.4, 8), Color3.fromRGB(74, 235, 194))
     pad.Material = Enum.Material.Neon
     addStopMarker(pad, "YOUR MUSEUM")
+    local returnSign = pad:FindFirstChild("StopSign")
+    if returnSign and returnSign:IsA("BillboardGui") then
+        returnSign.Size = UDim2.fromOffset(170, 30)
+        returnSign.StudsOffsetWorldSpace = Vector3.new(0, 0.5, -3)
+        returnSign.MaxDistance = 50
+        local signText = returnSign:FindFirstChildOfClass("TextLabel")
+        if signText then signText.Text = "RIDE TO MUSEUM" end
+    end
 
     local prompt = Instance.new("ProximityPrompt")
     prompt.Name = "ReturnToMuseum"
@@ -271,7 +359,7 @@ local function addDispatchPrompts(expansion: Model)
     end
 end
 
-local function socket(model: Model, name: string, anchorId: string): BasePart?
+socket = function(model: Model, name: string, anchorId: string): BasePart?
     local part = model:FindFirstChild(name, true)
     if part ~= nil and part:IsA("BasePart") and part:GetAttribute("AnchorId") == anchorId then
         return part
@@ -355,12 +443,14 @@ local function assign(player: Player)
     clone:SetAttribute("OwnerUserId", player.UserId)
     clone:SetAttribute("PlotId", plotId)
     clone:SetAttribute("CloneId", cloneId)
+    updateStandPlaques(clone)
     for _, descendant in clone:GetDescendants() do
         if descendant:IsA("BasePart") and descendant:GetAttribute("AnchorId") ~= nil then
             descendant:SetAttribute("SocketId", plotId .. "." .. cloneId .. "."
                 .. tostring(descendant:GetAttribute("AnchorId")))
         end
     end
+    addStandRulePrompts(clone)
     local grounds = preset:Clone()
     grounds:PivotTo(transform * preset:GetPivot())
     grounds.Parent = clone
@@ -436,41 +526,13 @@ function PlotService.RefreshDisplays(player: Player)
         local target = socket(museum, partName, slotId)
         if itemId ~= nil and exhibit ~= nil and exhibit.state == "Available"
             and target ~= nil then
-            local display: Model
-            if itemId == "toaster" then
-                display = ToasterVisual.Create("Display_" .. slotId,
-                    target.CFrame * CFrame.new(0, -0.175, 0), true)
-            else
-                display = Instance.new("Model")
-                display.Name = "Display_" .. slotId
-                local artifact = Instance.new("Part")
-                artifact.Name = "ArtifactPlaceholder"
-                artifact.Shape = Enum.PartType.Ball
-                artifact.Size = Vector3.new(2.4, 2.4, 2.4)
-                artifact.CFrame = target.CFrame
-                artifact.Material = Enum.Material.Metal
-                artifact.Color = Color3.fromRGB(185, 148, 83)
-                artifact.Anchored = true
-                artifact.CanCollide = false
-                artifact.CanTouch = false
-                artifact.CanQuery = false
-                artifact.Parent = display
-                local label = Instance.new("BillboardGui")
-                label.Name = "ExhibitLabel"
-                label.Size = UDim2.fromOffset(160, 30)
-                label.StudsOffsetWorldSpace = Vector3.new(0, 2.3, 0)
-                label.AlwaysOnTop = true
-                label.Parent = artifact
-                local textLabel = Instance.new("TextLabel")
-                textLabel.Size = UDim2.fromScale(1, 1)
-                textLabel.BackgroundColor3 = Color3.fromRGB(28, 40, 42)
-                textLabel.TextColor3 = Color3.fromRGB(245, 230, 192)
-                textLabel.Text = Items.ById[itemId].name
-                textLabel.TextScaled = true
-                textLabel.Parent = label
-            end
+            local center = if itemId == "toaster"
+                then target.CFrame * CFrame.new(0, -0.175, 0)
+                else target.CFrame * CFrame.new(0, ItemVisuals.Height(itemId) / 2 - 1.1, 0)
+            local display = ItemVisuals.Create(itemId, "Display_" .. slotId, center, true)
             display:SetAttribute("ItemId", itemId)
             display:SetAttribute("SlotId", slotId)
+            addDisplayEffects(display, target, slotId, itemId)
             display.Parent = folder
         end
     end
