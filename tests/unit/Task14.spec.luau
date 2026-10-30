@@ -25,9 +25,10 @@ assert(Brain.Step(b,observed({contact=true}),.1)=="Capture")
 assert(b.state=="Return" and b.target==nil,"capture clears target")
 Brain.Step(b,{home=true},.1);assert(b.state=="Patrol")
 b=acquire()
-for i=1,39 do Brain.Step(b,observed({seen=false}),.1) end
-assert(b.state=="Chase","give-up needs full four seconds")
-assert(Brain.Step(b,observed({seen=false}),.1)=="Escaped")
+for i=1,40 do Brain.Step(b,observed({seen=false}),.1) end
+assert(b.state=="Search","lost target must be pursued to last position")
+for i=1,61 do Brain.Step(b,observed({seen=false,atLastKnown=true}),.1) end
+assert(b.state=="Return","bounded search expires")
 b=acquire()
 for i=1,30 do Brain.Step(b,observed({seen=false}),.1) end
 Brain.Step(b,observed(),.1)
@@ -42,6 +43,47 @@ assert(b.state=="Return","protection gained mid-chase is honored")
 b=Brain.New();Brain.Step(b,{candidate=123},.1)
 Brain.Step(b,observed({seen=false}),.1)
 assert(b.state=="Return","cover during warning prevents chase")
+
+local B=require(game.ReplicatedStorage.Shared.BalanceConfig)
+local P=require(Server.Domain.GuardPerception)
+local forward=Vector3.new(0,0,-1)
+assert(P.Reason(Vector3.new(15,0,-10),forward,true,false)=="ForwardVision")
+assert(P.Reason(Vector3.new(0,0,8),forward,true,false)=="CloseAwareness")
+assert(P.Reason(Vector3.new(0,0,10),forward,true,false)==nil)
+assert(P.Reason(Vector3.new(0,0,8),forward,false,false)==nil)
+assert(P.Reason(Vector3.new(0,0,40),forward,true,true)=="PursuitSight")
+assert(P.Reason(Vector3.new(0,0,-80),forward,true,true)==nil)
+b=Brain.New()
+assert(Brain.Step(b,{noise=true},.1)=="Investigate")
+assert(b.state=="Investigation" and b.target==nil,"hearing cannot identify a thief")
+Brain.Step(b,{candidate=456},.1)
+assert(b.state=="Suspicious" and b.target==456)
+Brain.Step(b,observed({candidate=789}),.1)
+assert(b.target==456,"second player cannot steal an active target lock")
+b=Brain.New();Brain.Step(b,{noise=true},.1)
+Brain.Step(b,{},B.GUARD_INVESTIGATION_SECONDS)
+assert(b.state=="Return")
+Brain.Step(b,{},B.GUARD_RETURN_SECONDS)
+assert(b.state=="Patrol","unreachable return cannot lock state forever")
+Brain.Return(b);Brain.Step(b,{candidate=789},.1)
+assert(b.target==789,"return can acquire a visible carrier")
+b=acquire();Brain.Step(b,observed({seen=false}),30)
+assert(b.state=="Return","elapsed stall time is not discarded by search")
+b=acquire();Brain.Step(b,observed({contact=true}),2)
+assert(b.state=="Capture","one stale observation cannot complete capture")
+Brain.Step(b,observed({valid=false,contact=true}),.2)
+assert(b.state=="Return","invalid carry cannot complete capture")
+for _,dt in {.05,.1,.2} do
+    b=Brain.New();Brain.Step(b,{candidate=123},dt)
+    local elapsed=0
+    while b.state=="Suspicious" do Brain.Step(b,observed(),dt);elapsed+=dt end
+    assert(elapsed>=B.GUARD_WARNING_SECONDS and elapsed<B.GUARD_WARNING_SECONDS+dt+.001)
+end
+local Noise=require(Server.Services.GuardNoise)
+Noise.Take()
+for i=1,30 do Noise.Emit(Vector3.new(i,0,0),"Test") end
+local noises=Noise.Take()
+assert(#noises==12 and #Noise.Take()==0,"noise queue bounded and drained")
 
 local Feedback=require(Server.Services.NpcRunFeedback)
 local fake={attributes={}}

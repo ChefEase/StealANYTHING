@@ -43,6 +43,8 @@ end
 function Visual.Update(v, state, warning, moving, time)
     v.label.Text=if state=="Suspicious" then "?  NOTICED YOU  "..math.floor(warning*100).."%"
         elseif state=="Chase" then "!  CHASING" elseif state=="Capture" then "!  MOVE AWAY!"
+        elseif state=="Investigation" then "?  HEARD A PICKUP"
+        elseif state=="Search" then "?  SEARCHING"
         elseif state=="Return" then "RETURNING" else "DEPOT GUARD"
     v.label.TextColor3=if state=="Chase" or state=="Capture" then Color3.fromRGB(255,128,111)
         elseif state=="Suspicious" then Color3.fromRGB(255,220,111) else Color3.fromRGB(213,230,239)
@@ -50,4 +52,6 @@ function Visual.Update(v, state, warning, moving, time)
         limb.part.CFrame=v.root.CFrame*limb.offset*CFrame.Angles(if moving then math.sin(time*10)*.32*limb.side else 0,0,0)
     end
 end
+function Visual.SetPivot(v,cf) v.model:PivotTo(cf) end
+function Visual.Destroy(v) v.model:Destroy() end
 return Visual

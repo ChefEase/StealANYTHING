@@ -22,11 +22,12 @@ function Hud.Start(player,screen)
         local protected=player:GetAttribute("TutorialGuardProtected")==true or player:GetAttribute("TutorialReplayActive")==true
         title.Text=if not state or protected then "PRACTICE WARNING — YOUR ITEM IS SAFE"
             elseif state=="Suspicious" then "GUARD NOTICED YOU" elseif state=="Capture" then "MOVE AWAY — ABOUT TO BE CAUGHT"
-            else "GUARD CHASING YOU"
+            elseif state=="Search" then "GUARD SEARCHING FOR YOU" else "GUARD CHASING YOU"
         detail.Text=if not state or protected then "Normal depot items can be confiscated."
+            elseif state=="Suspicious" and player:GetAttribute("GuardDetectionReason")=="CloseAwareness" then "Too close! Carriers can be noticed from any side."
             elseif state=="Suspicious" then "Break sight before the warning fills."
             elseif state=="Capture" then "Get out of reach now!"
-            else "Break sight behind a solid wall for 4 seconds."
+            else "Break sight, then leave your last seen position."
         bar.Size=UDim2.new(if state=="Capture" then player:GetAttribute("GuardCaptureProgress") or 0
             elseif state=="Suspicious" then player:GetAttribute("GuardSuspicion") or 0 else 1,0,0,4)
         local width=screen.AbsoluteSize.X
@@ -40,9 +41,10 @@ function Hud.Start(player,screen)
             title.Text=if not state or protected then "PRACTICE — ITEM SAFE"
                 elseif state=="Capture" then "MOVE AWAY!" else title.Text
             detail.Text=if not state or protected then "Your first item cannot be taken."
+                elseif state=="Suspicious" and player:GetAttribute("GuardDetectionReason")=="CloseAwareness" then "Too close! Hide behind cover."
                 elseif state=="Suspicious" then "Hide behind a solid wall."
                 elseif state=="Capture" then "Get out of reach now!"
-                else "Break sight for 4 seconds."
+                else "Hide, then leave your last seen spot."
         else
             panel.AnchorPoint=Vector2.new(.5,0)
             panel.Size=UDim2.fromOffset(math.min(330,width-28),58)
@@ -51,7 +53,7 @@ function Hud.Start(player,screen)
         -- Reserve the notification slot while the safety warning is visible.
         screen:SetAttribute("GuardWarningVisible",panel.Visible)
     end
-    for _,name in {"GuardState","GuardSuspicion","GuardCaptureProgress"} do player:GetAttributeChangedSignal(name):Connect(render) end
+    for _,name in {"GuardState","GuardSuspicion","GuardCaptureProgress","GuardDetectionReason"} do player:GetAttributeChangedSignal(name):Connect(render) end
     player:GetAttributeChangedSignal("GuardTutorialNotice"):Connect(function()
         tutorialUntil=os.clock()+4;render();task.delay(4,render)
     end)

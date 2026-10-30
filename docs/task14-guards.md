@@ -1,43 +1,55 @@
-# Task 14: depot guard
+# Task 14 guard repair (2–6 players)
 
-The NPC depot has one server-owned guard archetype with a six-point, 34-stud-radius patrol. The orange vest, overhead state label and player warning identify its behavior without requiring sound. The loop is independent of museum ownership or player earnings. It does not change stock weights, rewards, or prices.
+Status: implementation and focused automated checks; multiplayer/route acceptance is still required. Task 14A and 14B have not started. Earlier implementation playtests do not count as acceptance of this revision.
 
-Detection requires an active NPC carry, a live character, a 24-stud range, a 100-degree forward field of view, and an unobstructed server ray. The guard warns for 0.75 seconds before chasing at 14 studs/second. Solid cover or leaving detection range for four seconds ends pursuit. Capture requires continuous visible contact within 3.5 studs for 0.4 seconds; moving away cancels that windup. Capture fails the stock run through CarryService, removes only the unsaved carry, and briefly slows the character for 0.6 seconds. It does not damage the character or remove cash or registered exhibits. Delivery locks and carry IDs are checked again at commit.
+## Gameplay and transitions
 
-First-item protection reads the authoritative profile rule and carry source. Tutorial/replay carries can receive a practice warning but cannot enter Chase or Capture. Museum bounds, including cloned museum grounds, are excluded from both target acquisition and guard movement. Delivered/dropped items, dead/disconnected players, changed carry IDs, or inactive match admission invalidate the target. Shuttle/depot rides reject chased players, including a second check after the teleport effect's delay.
+- Patrol, Return, or Investigation acquire the nearest eligible visible carrier. Distance ties within 0.1 studs prefer the least recently selected player; never use plot number or earnings. An active target is retained until invalid, captured, protected, timed out, or unreachable. Other thieves cannot steal its target lock.
+- Forward acquisition: 24 studs, 130-degree total cone. Public carriers within 9 studs can be noticed from any direction. BOTH routes require a server obstruction ray. All acquisitions use the same visible 0.75-second warning; nearby ordinary visitors are not chased.
+- A successful public pickup emits a server-only location event after carry attachment. The guard hears events within 35 studs, including behind cover, but gains NO player identity. Patrol/Return -> Investigation. The overhead label says HEARD A PICKUP. Investigation moves toward the location, acquires only through sight, and expires after 8 seconds. Repeated noises cannot reset that deadline indefinitely. The queue is capped at 12 and stale events expire after 2 seconds. Task 15 may add other explicit noise sources later.
+- Investigation/Patrol/Return -> Suspicious on visual confirmation. Losing sight during warning cancels it. Protected first-item/tutorial/replay warnings return without chasing. Otherwise Suspicious -> Chase after the warning.
+- Chase retains sight in all directions within 70 studs (still requires obstruction checks), moves at 14 studs/s versus normal carry 12 and heavy carry 10. The 340-stud radius limits NEW acquisition, not a valid ongoing chase. A 60-second pursuit budget prevents endless map-wide chase.
+- Lost sight -> Search, following the last observed location without tracking hidden player movement. On reaching it, search for 6 seconds; after 12 seconds of travel without sight, the search deadline starts anyway. Reacquisition resumes Chase; prolonged search -> Return. Travel during Search remains blocked by GuardChased.
+- Visible contact within 3.5 studs -> Capture; 0.4 seconds of observed contact is required. Losing contact resets windup. Capture invokes the unchanged CarryService.TryGuardCapture contract. Carry ID AND run ID are revalidated. Delivery locks, tutorial protection, stock failure and feedback remain in the existing service; cash and registered exhibits are untouched.
+- Invalid carry, death/reset/disconnect, museum entry, or match ineligibility -> Return. Return -> Patrol on arrival or after 20 seconds. Patrol then tries alternative points if blocked; there is no teleport fallback.
 
-Movement runs at 10 Hz with capped simulation steps. Paths are requested no faster than once per 1.25 seconds, with one computation in flight. Each path has a waypoint cap; stale results are discarded. Every movement step is checked against collidable geometry and museum bounds. A small checked retreat resolves navmesh corner clearance; blocked/unreachable pursuit returns to patrol rather than teleporting through walls. Patrol visited all six indices in the live navigation test (about 291 studs traveled over 22 seconds, three path computations).
+## Navigation, timing, diagnostics
 
-Failure history is session-only and capped at eight observations per player. Sightings, capture, dropped/dead carries, and unusually long routes use allowlisted reason codes. A long route is not counted as a failed heist, and one run cannot count twice. After two failed runs, rate-limited optional advice offers **Got it** and **No more tips** (for this session). Successful public delivery resets the failure streak. Phone guard warnings reserve the notification slot; ordinary notices wait until it is free. Noisy-item investigation/pings remain part of Task 15's carry behavior.
+Local movement sweeps only the intended step, not the full destination distance. Ground height and obstacle clearance are checked each step. Longer routes use the existing no-jump pathfinder, at most once per 1.25 seconds with one computation in flight. Stale results are discarded and Path instances destroyed. Museum intersection is checked along whole path segments and movement segments using local-space rectangle intersection, including the existing 3-stud margin.
 
-## Validation performed
+Movement uses at most three <=0.1-second swept steps per decision. State deadlines consume all elapsed time without an unbounded catch-up loop. Warning/capture credit is limited to 0.25 seconds per observation so a long server stall cannot instantly convict a player. A stall deliberately slows physical movement instead of teleporting to catch up. Visual poses update at most 15 Hz using wall-clock time independently of AI decisions.
 
-- Deterministic tests: warning delay, capture windup/cancel, four-second sight loss, sight reacquisition, target invalidation, tutorial protection, bounded/deduplicated guidance. Run `tests/unit/Task14.spec.luau` in Studio after syncing.
-- Live normal public pickup: Suspicious → Chase → Capture → Return. A server-script audit confirmed the carry was cleared, cash was not deducted, registered exhibits were unchanged, and the target was cleared.
-- Live tutorial replay: Suspicious → Return, toaster preserved, no Chase or Capture.
-- Live solid-cover test: no capture through a temporary wall; pursuit ended after four seconds and the carry remained held at the assertion.
-- Live museum-entry test during Chase: target cleared, guard remained outside, carried item preserved.
-- Actual optional guidance appeared after two captures and its dismiss button was exercised.
-- Guard patrol and no-jump navmesh routes measured in the current six-plot district. Distances below are to starter gate approaches, not guaranteed player completion times or measurements of fully populated six-player traffic.
+Eight seconds without meaningful positional progress ends an unreachable pursuit or skips a blocked patrol destination. A small collision-checked retreat is retained; retreat alone does not reset progress. Dynamic museum expansion still needs bounds refresh when that future feature is implemented; current bounds are captured when each complete museum model is added.
 
-| Plot | Open route | Covered route via both authored waypoints |
-|---|---:|---:|
-| 1 | 300 studs | 410 studs |
-| 2 | 325 studs | 359 studs |
-| 3 | 327 studs | 349 studs |
-| 4 | 300 studs | 397 studs |
-| 5 | 318 studs | 353 studs |
-| 6 | 327 studs | 352 studs |
+Inspect workspace.DepotGuardRuntime attributes: State, TargetUserId, LastKnownPosition, DetectionReason, InvestigationSource, PursuitEndReason, NavigationFailureReason, PathStatus, PathComputations, CaptureAccepted. Failure/source attributes retain the last event, rather than implying an active failure. There is no per-tick logging. Service.Stop disconnects listeners, clears target attributes and destroys presentation.
 
-The patrol checks exits near the depot, so owning a farther plot does not automatically avoid detection. Longer covered routes still need player escape/pacing feedback, especially once Task 15's carry penalties exist.
+## Configuration
 
-## Owner playtest
+In BalanceConfig: GUARD_VIEW_DEGREES=130; GUARD_CLOSE_AWARENESS_STUDS=9; GUARD_PURSUIT_VISION_STUDS=70; GUARD_ACQUISITION_RADIUS=340; GUARD_CHASE_SECONDS=60; GUARD_SEARCH_SECONDS=6; GUARD_INVESTIGATION_SECONDS=8; GUARD_RETURN_SECONDS=20; GUARD_PATH_INTERVAL=1.25; GUARD_STUCK_SECONDS=8.
 
-1. Restart Play, take normal public stock, and watch for the yellow warning before the red chase state.
-2. Move away during the capture windup; then let the guard catch you once. Check that only the held item is lost and its pedestal restocks.
-3. Break sight behind a solid wall for four seconds. Repeat on open/covered approaches to different plots. A roof alone is not cover.
-4. Enter a museum: the guard should stop targeting you and never enter the museum grounds.
-5. Replay the tutorial: the practice warning must never take the toaster.
-6. Fail two normal runs, dismiss the help, and choose **No more tips** to verify it stays dismissed for the session.
+Existing settings retained: detection=24, noise radius=35, warning=.75, speed=14, lost-sight=4 (now the base for the 12-second last-position travel allowance), capture windup=.4. These are initial gameplay test values.
 
-Remaining acceptance: six simultaneous players, physical-phone/controller warning readability, full end-to-end escape/capture coverage on both routes to every occupied plot, and final pacing after Task 15. No live publication was performed.
+## Task 14A visual contract (design only)
+
+Current adapter exposes Create(parent, position), SetPivot(controller, CFrame), Update(controller, state, warning, moving, wallClock), Destroy(controller). Gameplay only reads a stable root and sends transforms/state; presentation never chooses targets or captures.
+
+The replacement adapter should support Create or Attach(model), GetRoot(), SetPivot(CFrame), SetFacing(direction), SetState(state), PlayAnimation(name, options), SetProgress(warning, capture), Update(dt), Destroy(). Named animations: Idle, Patrol, Investigate, Warn, Chase, Search, Capture, Return. Map missing clips to Idle/Walk gracefully. SetPivot must preserve one stable gameplay root independent of animated bones; animation root motion cannot move the authoritative collider. Cleanup must disconnect tracks and release instances. This is an interface specification, not a claim that the current placeholder has those animation clips or an imported rig.
+
+## Verification and remaining acceptance
+
+Automated checks run on 30 October: museum and lobby Rojo builds passed; Task14 unit suite passed in a fresh Studio Server context; existing Task13 stock/delivery and TutorialLoop delivery/income/rejoin suites passed. A live server-only noise probe entered Investigation, assigned no target, and exited on its deadline. The final isolated live probe passed forward chase, pursuit beyond depot, solid-cover Search, search exit, rear awareness, drop invalidation, museum exclusion, capture windup and protected warning. This uses synthetic carry/capture dependencies, not real inventory confiscation. git diff --check passed. These are narrower than the outstanding acceptance matrix below. The initial Edit test encountered stale require caching; an initial live-probe version attempted to mutate the frozen CarryService and was corrected to isolated modules; the fixed-delay protected-warning assertion was replaced with transition polling and passed on rerun.
+
+Run tests/unit/Task14.spec.luau in a fresh Studio session after syncing; Edit command-bar require caches may retain old modules. Tests cover perception broad phase, warning/windup, target locking/invalidation, investigation/search/Return deadlines, frame-rate variation, protected carries, bounded noise and feedback. The broad-phase test alone is not proof of wall occlusion.
+
+Run Task14LiveProbe.server.luau in the Server command bar during one-player Studio Play. It creates isolated temporary guard/carry modules and a normal Script, substitutes a synthetic carry and capture callback, then restores the original guard. It never claims stock or changes profiles. It exercises actual guard sight, physical cover, navigation, search, rear awareness, museum entry, capture request timing and protected warning. Stop Play after running. It does NOT replace end-to-end delivery/stock tests or simultaneous multiplayer tests.
+
+Known limits: one no-jump guard, current static museum bounds, conservative movement after long server stalls, no final Warden rig or audiovisual polish. Existing unrelated Studio asset warnings for asset 203785492 remain. Historical route lengths (not remeasured in this repair): open routes 300-327 studs; covered routes 349-410 studs.
+
+Still required before accepting Task 14:
+1. Two and six real clients: simultaneous cone entry, multiple carriers, stable pursuit when another thief arrives, no plot priority.
+2. Normal public pickup -> noise/warning -> chase -> capture, check actual stock restock, unchanged cash/collection, and delivery-lock race.
+3. All six open/covered routes: chase beyond depot, cover loss/reacquisition, unreachable destinations, museum entry and no boundary crossing.
+4. Drop/deliver/reset/disconnect while warned, chasing and capturing; tutorial first item and replay end-to-end.
+5. Profile pathfinding/physics query rates at six clients and varied server frame rates; phone warning readability and close-awareness fairness.
+
+No manual assets, animation IDs, sound IDs or new remotes are needed. Sync the changed modules through Rojo and restart Play. No publication was performed.

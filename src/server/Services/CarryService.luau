@@ -359,6 +359,10 @@ local function completePickup(player: Player, requestId: string)
         setPickupEligible(player)
         return
     end
+    if not tutorial then
+        local root=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if root then require(script.Parent.GuardNoise).Emit(root.Position,"PublicStockPickup") end
+    end
     tell(player, ItemCatalog.ById[carry.itemId].name
         .. " secured. Carry it to your museum drop-off!", "Success")
 end
