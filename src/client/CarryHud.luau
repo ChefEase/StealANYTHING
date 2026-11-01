@@ -208,10 +208,13 @@ function CarryHud.Create(parent: ScreenGui, player: Player)
             PhoneHudLayout.Apply(panel, rect)
             collapsedButton.AnchorPoint = Vector2.new(0, 0)
             collapsedButton.Position = UDim2.fromOffset(rect.x, rect.y)
+            collapsedButton.Size = UDim2.fromOffset(rect.w, 48)
+            collapsedButton.TextSize = 12
+            collapseButton.Size = UDim2.fromOffset(44, 44)
             header.Size = UDim2.new(1, -4, 0, if rect.h < 90 then 19 else 23)
             itemName.Position = UDim2.fromOffset(15,
                 if rect.h < 80 then 21 elseif rect.h < 90 then 23 else 25)
-            itemName.Size = UDim2.new(1, -30, 0, 22)
+            itemName.Size = UDim2.new(1, -64, 0, 22)
             itemName.TextSize = if rect.h < 80 then 13 else 14
             itemDetails.Position = UDim2.fromOffset(15,
                 if rect.h < 80 then 42 elseif rect.h < 90 then 45 else 48)
@@ -232,6 +235,9 @@ function CarryHud.Create(parent: ScreenGui, player: Player)
             panel.Size = UDim2.new(0.38, 0, 0, 130)
             collapsedButton.AnchorPoint = Vector2.new(0, 1)
             collapsedButton.Position = UDim2.new(0, 28, 1, -34)
+            collapsedButton.Size = UDim2.fromOffset(52, 52)
+            collapsedButton.TextSize = 10
+            collapseButton.Size = UDim2.fromOffset(31, 25)
             header.Size = UDim2.new(1, -4, 0, 25)
             itemName.Position = UDim2.fromOffset(15, 29)
             itemName.Size = UDim2.new(1, -125, 0, 26)
@@ -267,7 +273,7 @@ function CarryHud.Create(parent: ScreenGui, player: Player)
         local currentItem = player:GetAttribute("CurrentCarryItem")
         local wasCarrying = carrying
         carrying = type(currentItem) == "string" and currentItem ~= ""
-        if carrying and not wasCarrying then expanded = true end
+        if carrying and not wasCarrying then expanded = not phoneLayout end
         if not carrying then expanded = false end
         itemName.Text = string.upper(if carrying then currentItem else "Dramatic Toaster")
 
@@ -298,6 +304,14 @@ function CarryHud.Create(parent: ScreenGui, player: Player)
         end
 
         local currentBehavior = player:GetAttribute("CarryBehavior")
+        if phoneLayout and carrying then
+            local distance = player:GetAttribute("CarryDistance")
+            local route = if type(distance) == "number"
+                then "MUSEUM / " .. tostring(math.max(0, math.floor(distance))) .. " STUDS"
+                else "FOLLOW MUSEUM MARKER"
+            collapsedButton.Text = "CARRY / TAP FOR INFO\n" .. route
+            incomeDetails.Text = route
+        end
         behavior.Text = string.upper(if type(currentBehavior) == "string" and currentBehavior ~= ""
             then currentBehavior
             else "Noisy")
@@ -317,6 +331,11 @@ function CarryHud.Create(parent: ScreenGui, player: Player)
     player:GetAttributeChangedSignal("CarryBehavior"):Connect(render)
     player:GetAttributeChangedSignal("CarryItemId"):Connect(render)
     player:GetAttributeChangedSignal("CarrySource"):Connect(render)
+    player:GetAttributeChangedSignal("CarryDistance"):Connect(render)
+    player:GetAttributeChangedSignal("GuardChased"):Connect(function()
+        if phoneLayout and player:GetAttribute("GuardChased") == true then expanded = false end
+        updateVisibility()
+    end)
     UserInputService.LastInputTypeChanged:Connect(render)
     parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
         updateLayout()

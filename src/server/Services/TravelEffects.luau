@@ -2,10 +2,15 @@
 
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local Balance = require(game.ReplicatedStorage.Shared.BalanceConfig)
+local Noise = require(script.Parent.GuardNoise)
 
 local TravelEffects = {}
-local canCarryTeleport: ((Player, Vector3) -> boolean)? = nil
+local canCarryTeleport: ((Player, Vector3, any?) -> boolean)? = nil
 local recordCarryTeleport: ((Player, Vector3, Vector3) -> ())? = nil
+local getCarry: ((Player) -> any?)? = nil
+local active: {[Player]: boolean} = {}
 local TEAL = Color3.fromRGB(74, 235, 194)
 local GOLD = Color3.fromRGB(255, 207, 115)
 local MAGIC_SOUND = "rbxassetid://248435147" -- Roblox-owned Magic Sound
@@ -77,37 +82,100 @@ local function burst(position: Vector3)
 end
 
 function TravelEffects.SetCarryTeleportHandlers(
-    canTravel: (Player, Vector3) -> boolean,
-    recordTravel: (Player, Vector3, Vector3) -> ()
+    canTravel: (Player, Vector3, any?) -> boolean,
+    recordTravel: (Player, Vector3, Vector3) -> (),
+    snapshot: (Player) -> any?
 )
     canCarryTeleport = canTravel
     recordCarryTeleport = recordTravel
+    getCarry = snapshot
 end
 
-function TravelEffects.Teleport(player: Player, destination: CFrame): boolean
-    if player:GetAttribute("GuardChased") == true then return false end
+-- Anchor and access checks come only from server callers, never remote arguments.
+function TravelEffects.Teleport(player: Player, destination: CFrame,
+    anchor: BasePart?, range: number?, access: (() -> boolean)?): boolean
+    if active[player] or not getCarry or not canCarryTeleport or not recordCarryTeleport then return false end
     local character = player.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
     if not character or not root or not root:IsA("BasePart") then return false end
-    local carriedItem = player:GetAttribute("CurrentCarryItem")
-    if carriedItem ~= nil and (canCarryTeleport == nil or recordCarryTeleport == nil) then
-        return false
-    end
-    burst(root.Position - Vector3.new(0, 2.5, 0))
-    task.wait(0.22)
-    if player.Character ~= character or not character.Parent or not root.Parent
-        or player:GetAttribute("CurrentCarryItem") ~= carriedItem
-        or player:GetAttribute("GuardChased") == true then return false end
+    local carry = getCarry(player)
+    local extraction = carry ~= nil and not carry.tutorial and not carry.replay
+    -- No alternate server travel entry point can silently skip public extraction.
+    if extraction and not anchor then return false end
     local origin = root.Position
-    if carriedItem ~= nil and not (canCarryTeleport :: (Player, Vector3) -> boolean)(player, origin) then
-        return false
+    local function valid(): boolean
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if player.Parent ~= Players or player.Character ~= character or not character.Parent
+            or not root.Parent or not humanoid or humanoid.Health <= 0
+            or player:GetAttribute("ProfileState") ~= "Ready"
+            or (game:GetAttribute("MatchmakingEnabled") and player:GetAttribute("MatchActive") ~= true)
+            or (access and not access()) then return false end
+        if anchor and (not anchor:IsDescendantOf(workspace)
+            or (root.Position-anchor.Position).Magnitude > (range or 12)) then return false end
+        if extraction then
+            if (root.Position-origin).Magnitude > Balance.PUBLIC_EXTRACTION_MOVE_STUDS then return false end
+        elseif player:GetAttribute("GuardChased") == true then return false end
+        return (canCarryTeleport :: any)(player, root.Position, carry)
     end
-    character:PivotTo(destination)
-    if carriedItem ~= nil then
-        (recordCarryTeleport :: (Player, Vector3, Vector3) -> ())(player, origin, root.Position)
+    if not valid() then return false end
+    active[player] = true
+    local marker: BillboardGui? = nil
+    local ok, result = xpcall(function()
+        local duration = if extraction then Balance.PUBLIC_EXTRACTION_SECONDS else 0.22
+        local started = os.clock()
+        local nextNoise = started
+        if extraction then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ExtractionMarker"
+            billboard.Size = UDim2.fromOffset(150, 30)
+            billboard.StudsOffsetWorldSpace = Vector3.new(0, 4, 0)
+            billboard.MaxDistance = 60
+            billboard.AlwaysOnTop = false
+            billboard.Adornee = root
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.fromScale(1, 1)
+            label.BackgroundColor3 = Color3.fromRGB(37, 28, 23)
+            label.TextColor3 = Color3.fromRGB(255, 214, 126)
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 14
+            label.Text = "EXTRACTING STOCK"
+            label.Parent = billboard
+            billboard.Parent = root
+            marker = billboard
+            player:SetAttribute("ExtractionEndsAt", workspace:GetServerTimeNow()+duration)
+            player:SetAttribute("ExtractionDuration", duration)
+            player:SetAttribute("ExtractionActive", true)
+        else
+            burst(origin - Vector3.new(0, 2.5, 0))
+        end
+        repeat
+            if not valid() then return false end
+            if extraction and os.clock() >= nextNoise then
+                Noise.Emit(origin, "TeleportExtraction")
+                nextNoise = os.clock()+Balance.PUBLIC_EXTRACTION_NOISE_SECONDS
+            end
+            task.wait(math.min(0.1, math.max(0.01, duration-(os.clock()-started))))
+        until os.clock()-started >= duration
+        -- No yield between final identity/access validation, movement and route credit.
+        if not valid() then return false end
+        local departure = root.Position
+        character:PivotTo(destination)
+        if carry then
+            (recordCarryTeleport :: any)(player, departure, root.Position)
+        end
+        burst(destination.Position - Vector3.new(0, 2.5, 0))
+        return true
+    end, debug.traceback)
+    if marker then marker:Destroy() end
+    active[player] = nil
+    if extraction then
+        player:SetAttribute("ExtractionActive", nil)
+        player:SetAttribute("ExtractionEndsAt", nil)
+        player:SetAttribute("ExtractionDuration", nil)
+        player:SetAttribute("ExtractionOutcome", if ok and result then "Completed" else "Cancelled")
     end
-    burst(destination.Position - Vector3.new(0, 2.5, 0))
-    return true
+    if not ok then warn("[Travel] Activation failed: " .. tostring(result)) end
+    return ok and result == true
 end
 
 return table.freeze(TravelEffects)

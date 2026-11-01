@@ -582,11 +582,16 @@ end
 function CarryService.Start()
     if started then return end
     started = true
-    TravelEffects.SetCarryTeleportHandlers(function(player: Player, origin: Vector3): boolean
+    TravelEffects.SetCarryTeleportHandlers(function(player: Player, origin: Vector3, expected: any?): boolean
         local session = state:Get(player.UserId)
+        if expected == nil then return session == nil end
         local route = carryTelemetry[player.UserId]
         if session == nil or session.kind ~= "Carrying" or route == nil
+            or session.carryId ~= expected.carryId or session.runId ~= expected.runId
+            or (player:GetAttribute("TutorialReplayActive") == true) ~= expected.replay
             or deliveryLocked[player.UserId] then return false end
+        if session.targetId ~= TARGET_ID and (not publicEligible(player)
+            or not PublicStockService.IsRunActive(session.runId)) then return false end
         sampleCarryRoute(route, origin)
         return not route.invalid
     end, function(player: Player, origin: Vector3, destination: Vector3)
@@ -598,7 +603,7 @@ function CarryService.Start()
         route.authorizedTime += horizontal / Balance.NORMAL_CARRY_SPEED
         route.lastPosition = destination
         route.lastTime = os.clock()
-    end)
+    end, CarryService.GetActiveCarry)
     local network = ReplicatedStorage:WaitForChild("Network")
     feedback = network:WaitForChild("Feedback") :: RemoteEvent
     local beginRemote = network:WaitForChild("BeginPickup") :: RemoteEvent

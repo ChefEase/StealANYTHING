@@ -178,6 +178,10 @@ function PublicStockService.Finish(runId: string)
     if stock ~= nil then stock:Finish(runId) end
 end
 
+function PublicStockService.IsRunActive(runId: string): boolean
+    return stock ~= nil and stock.runs[runId] ~= nil
+end
+
 function PublicStockService.Fail(runId: string)
     if stock ~= nil then stock:Fail(runId) end
 end

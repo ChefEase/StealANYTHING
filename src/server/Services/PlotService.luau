@@ -274,7 +274,7 @@ local function buildConnector(current: Model, expansion: Model)
             local root = character and character:FindFirstChild("HumanoidRootPart")
             if root == nil or not root:IsA("BasePart") then return end
             lastRide[player.UserId] = now
-            TravelEffects.Teleport(player, CFrame.new(stop.destination))
+            TravelEffects.Teleport(player, CFrame.new(stop.destination), pad, prompt.MaxActivationDistance)
         end)
     end
 end
@@ -318,7 +318,11 @@ local function addMuseumReturnPad(expansion: Model)
         if assignment == nil or assignment.museum.Parent == nil or assignment.spawn.Parent == nil then return end
         lastRide[player.UserId] = now
         -- Use the same clear interior arrival point as the assigned spawn.
-        TravelEffects.Teleport(player, assignment.spawn.CFrame * CFrame.new(0, 3, -20))
+        TravelEffects.Teleport(player, assignment.spawn.CFrame * CFrame.new(0, 3, -20),
+            pad, prompt.MaxActivationDistance, function()
+                return assignments[player.UserId] == assignment and assignment.museum.Parent ~= nil
+                    and assignment.spawn.Parent ~= nil
+            end)
     end)
 end
 
@@ -345,7 +349,7 @@ local function addDispatchPrompts(expansion: Model)
                 local platform = depot and depot:FindFirstChild("Platform")
                 if platform == nil or not platform:IsA("BasePart") then return end
                 if TravelEffects.Teleport(player,
-                    CFrame.new(platform.Position + Vector3.new(0, 4, -16))) then
+                    CFrame.new(platform.Position + Vector3.new(0, 4, -16)), gate, prompt.MaxActivationDistance) then
                     player:SetAttribute("RouteScouted", true)
                     player:SetAttribute("HudNotificationText", "AT THE DEPOT")
                     player:SetAttribute("HudNotificationDetail",

@@ -1,6 +1,15 @@
-﻿-- Decisions consume elapsed time; movement has its own bounded integration.
+-- Decisions consume elapsed time; movement has its own bounded integration.
 local B=require(game.ReplicatedStorage.Shared.BalanceConfig)
 local Brain={}
+-- Quantized distance gives a total order, including simultaneous first thefts.
+-- Pairwise "within .1" comparisons are non-transitive and depend on iteration order.
+function Brain.PreferCandidate(distance,selected,userId,bestDistance,bestSelected,bestUserId)
+    local bucket=math.floor(distance*10+.5)
+    local bestBucket=math.floor(bestDistance*10+.5)
+    if bucket~=bestBucket then return bucket<bestBucket end
+    if selected~=bestSelected then return selected<bestSelected end
+    return userId<bestUserId
+end
 function Brain.New()
     return {state="Patrol",target=nil,warning=0,windup=0,lost=0,age=0,pursuit=0,searching=0}
 end

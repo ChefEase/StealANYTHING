@@ -350,6 +350,7 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
     end)
 
     keyButton.InputBegan:Connect(function(input)
+        if player:GetAttribute("ExtractionActive") == true then return end
         if currentPrompt ~= nil and (input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch) then
             currentPrompt:InputHoldBegin()
@@ -451,6 +452,7 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
     end, false, Enum.KeyCode.E, Enum.KeyCode.ButtonX)
 
     collapseButton.Activated:Connect(function()
+        if player:GetAttribute("ExtractionActive") == true then return end
         if currentPrompt == nil and currentRemoteAction == nil then return end
         root.Visible = false
         collapsedButton.Visible = true
@@ -469,7 +471,34 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
         end
     end)
 
+    local showingExtraction = false
     RunService.RenderStepped:Connect(function()
+        if player:GetAttribute("ExtractionActive") == true then
+            showingExtraction = true
+            local duration = player:GetAttribute("ExtractionDuration") or Balance.PUBLIC_EXTRACTION_SECONDS
+            local remaining = math.max(0, (player:GetAttribute("ExtractionEndsAt") or 0)
+                - workspace:GetServerTimeNow())
+            root.Visible = true
+            collapsedButton.Visible = false
+            keyButton.Text = "..."
+            holdText.Text = "WAIT"
+            action.Text = string.format("EXTRACTING %.1fs", remaining)
+            object.Text = "Stay here. Moving cancels."
+            progressFill.Size = UDim2.fromScale(math.clamp(1-remaining/math.max(duration,.01),0,1),1)
+            return
+        elseif showingExtraction then
+            showingExtraction = false
+            local prompt = currentPrompt
+            if prompt then
+                keyButton.Text = inputName(prompt, lastInputType)
+                holdText.Text = if prompt.HoldDuration > 0 then "HOLD" else "PRESS"
+                action.Text = string.upper(prompt.ActionText)
+                object.Text = prompt.ObjectText
+                progressFill.Size = UDim2.fromScale(0,1)
+            else
+                showPreview()
+            end
+        end
         local prompt = currentPrompt
         local started = holdStarted
         if prompt ~= nil and started ~= nil then

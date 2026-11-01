@@ -137,7 +137,8 @@ function CarryDestinationHud.Create(parent: ScreenGui, player: Player)
         local phone = PhoneHudLayout.IsPhone(parent)
         -- The guided toaster already has a direction arrow and distance.
         -- Hide this duplicate destination card on both desktop and phone.
-        panel.Visible = carrying and player:GetAttribute("TutorialStep") ~= 0
+        -- Phone carry summary includes distance; avoid a second overlapping card.
+        panel.Visible = carrying and not phone and player:GetAttribute("TutorialStep") ~= 0
             and player:GetAttribute("TutorialReplayActive") ~= true
 
         local currentDestination = player:GetAttribute("CarryDestination")

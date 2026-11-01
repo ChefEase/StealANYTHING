@@ -45,6 +45,44 @@ Brain.Step(b,observed({seen=false}),.1)
 assert(b.state=="Return","cover during warning prevents chase")
 
 local B=require(game.ReplicatedStorage.Shared.BalanceConfig)
+-- Acquisition must not depend on GetPlayers ordering, including 26 first-time thieves.
+local candidates={}
+for id=1,26 do table.insert(candidates,{id=id,distance=20,selected=0}) end
+local function winner(list)
+    local best=nil
+    for _,candidate in list do
+        if not best or Brain.PreferCandidate(candidate.distance,candidate.selected,candidate.id,
+            best.distance,best.selected,best.id) then best=candidate end
+    end
+    return best.id
+end
+assert(winner(candidates)==1)
+for _=1,26 do
+    table.insert(candidates,table.remove(candidates,1))
+    assert(winner(candidates)==1,"simultaneous theft order must be stable")
+end
+assert(Brain.PreferCandidate(20,0,26,20,10,1),"least recently selected wins a distance tie")
+assert(Brain.PreferCandidate(19,10,26,20,0,1),"distance remains primary")
+-- The old fuzzy comparison can cycle across these three distances.
+local near={{id=3,distance=20,selected=0},{id=2,distance=20.08,selected=0},
+    {id=1,distance=20.16,selected=0}}
+for _=1,3 do
+    assert(winner(near)==3)
+    table.insert(near,table.remove(near,1))
+end
+for _,endReason in {"drop","deliver","leave","museum"} do
+    b=acquire()
+    Brain.Step(b,observed({candidate=456}),.1)
+    assert(b.target==123,"staggered thief must not steal lock")
+    Brain.Step(b,observed({valid=false}),.1)
+    Brain.Step(b,{candidate=456},.1)
+    assert(b.target==456 and b.state=="Suspicious",endReason.." permits fresh warning next tick")
+end
+b=acquire()
+Brain.Step(b,observed({seen=false,candidate=456}),.1)
+assert(b.state=="Search" and b.target==123,"cover retains current target, not hidden-position detection")
+Brain.Step(b,observed({candidate=456}),.1)
+assert(b.state=="Chase" and b.target==123,"visible reacquisition preserves lock")
 local P=require(Server.Domain.GuardPerception)
 local forward=Vector3.new(0,0,-1)
 assert(P.Reason(Vector3.new(15,0,-10),forward,true,false)=="ForwardVision")

@@ -241,8 +241,8 @@ function Service.Start()
                     local info=eligible(player,true)
                     if info and now>=(tutorialWarnings[player] or 0) and seen(info) then
                         local distance=(info.root.Position-visual.root.Position).Magnitude
-                        if distance<closest-.1 or (math.abs(distance-closest)<=.1 and
-                            (not candidate or (selectedAt[player] or 0)<(selectedAt[candidate] or 0))) then
+                        if not candidate or Brain.PreferCandidate(distance,selectedAt[player] or 0,player.UserId,
+                            closest,selectedAt[candidate] or 0,candidate.UserId) then
                             closest=distance;candidate=player
                         end
                     end
