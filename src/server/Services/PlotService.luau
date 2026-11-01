@@ -217,7 +217,7 @@ local function addStopMarker(pad: BasePart, destination: string)
     light.Parent = glow
     local sign = Instance.new("BillboardGui")
     sign.Name = "StopSign"
-    sign.Size = UDim2.fromOffset(190, 46)
+    sign.Size = UDim2.fromOffset(170, 40)
     sign.StudsOffsetWorldSpace = Vector3.new(0, 6, 0)
     sign.MaxDistance = 140
     sign.LightInfluence = 0
@@ -264,6 +264,7 @@ local function buildConnector(current: Model, expansion: Model)
         prompt.MaxActivationDistance = 12
         prompt.RequiresLineOfSight = false
         prompt.Style = Enum.ProximityPromptStyle.Custom
+        prompt:SetAttribute("CompactShuttlePrompt", true)
         prompt.Parent = pad
         local lastRide: {[number]: number} = {}
         prompt.Triggered:Connect(function(player)
@@ -292,9 +293,9 @@ local function addMuseumReturnPad(expansion: Model)
     addStopMarker(pad, "YOUR MUSEUM")
     local returnSign = pad:FindFirstChild("StopSign")
     if returnSign and returnSign:IsA("BillboardGui") then
-        returnSign.Size = UDim2.fromOffset(170, 30)
-        returnSign.StudsOffsetWorldSpace = Vector3.new(0, 0.5, -3)
-        returnSign.MaxDistance = 50
+        returnSign.Size = UDim2.fromOffset(160, 36)
+        returnSign.StudsOffsetWorldSpace = Vector3.new(0, 6, 0)
+        returnSign.MaxDistance = 120
         local signText = returnSign:FindFirstChildOfClass("TextLabel")
         if signText then signText.Text = "RIDE TO MUSEUM" end
     end
@@ -307,6 +308,7 @@ local function addMuseumReturnPad(expansion: Model)
     prompt.MaxActivationDistance = 12
     prompt.RequiresLineOfSight = false
     prompt.Style = Enum.ProximityPromptStyle.Custom
+    prompt:SetAttribute("CompactShuttlePrompt", true)
     prompt.Parent = pad
 
     local lastRide: {[number]: number} = {}

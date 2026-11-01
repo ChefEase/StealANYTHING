@@ -2,6 +2,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 local Catalog = require(ReplicatedStorage.Shared.WardrobeCatalog)
 local Appearance = require(ReplicatedStorage.Shared.WardrobeAppearance)
 local Store = require(script.Parent.WardrobeStore)
@@ -14,7 +15,7 @@ local refreshing: {[number]: boolean} = {}
 local started = false
 local actionRemote: RemoteEvent
 local stateRemote: RemoteEvent
-local purchase: ((Player, string) -> (boolean, string))? = nil
+local purchase: ((Player, string) -> (boolean, string, boolean))? = nil
 local profileOwned: ((Player) -> {[string]: boolean}?)? = nil
 
 local function remote(name: string): RemoteEvent
@@ -26,7 +27,7 @@ local function remote(name: string): RemoteEvent
     return created
 end
 
-local function show(player: Player, message: string?, open: boolean?)
+local function show(player: Player, message: string?, open: boolean?, cue: string?)
     local record = sessions[player.UserId]
     if player.Parent == Players then
         stateRemote:FireClient(player, {
@@ -36,6 +37,8 @@ local function show(player: Player, message: string?, open: boolean?)
             loadout = if record then record.loadout else {},
             message = message,
             open = open == true,
+            cue = cue,
+            cueId = if cue then HttpService:GenerateGUID(false) else nil,
         })
     end
 end
@@ -96,18 +99,18 @@ local function handle(player: Player, action: any, itemId: any)
         if item == nil or item.currency ~= "Cash" or item.price <= 0 or purchase == nil then
             show(player, "This item is unavailable here.")
         else
-            local success, message = purchase(player, itemId)
+            local success, message, purchased = purchase(player, itemId)
             if success then
                 refresh(player)
             end
-            show(player, message)
+            show(player, message, nil, if success and purchased then "Purchased" else nil)
         end
     elseif action == "Restore" and sessions[player.UserId] then
         local record, err = Store.Restore(player.UserId)
         if record then
             sessions[player.UserId] = record
             apply(player)
-            show(player, "Original Roblox avatar restored.")
+            show(player, "Original Roblox avatar restored.", nil, "LookChanged")
         else
             show(player, "Could not restore: " .. tostring(err))
         end
@@ -122,7 +125,7 @@ local function handle(player: Player, action: any, itemId: any)
             if record then
                 sessions[player.UserId] = record
                 apply(player)
-                show(player, "Look updated.")
+                show(player, "Look updated.", nil, "LookChanged")
             else
                 show(player, "Could not equip: " .. tostring(err))
             end

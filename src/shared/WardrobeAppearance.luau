@@ -634,7 +634,7 @@ local function glow(character: Model, folder: Folder, masked: boolean)
         auraSound.Name = "PhantomAuraSound"
         auraSound.SoundId = "rbxassetid://113241850049300"
         auraSound.Looped = true
-        auraSound.Volume = 0.025
+        auraSound.Volume = 0.10
         auraSound.RollOffMode = Enum.RollOffMode.InverseTapered
         auraSound.RollOffMinDistance = 2
         auraSound.RollOffMaxDistance = 12

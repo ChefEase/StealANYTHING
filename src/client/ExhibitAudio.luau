@@ -1,9 +1,19 @@
 -- Quiet local one-shots: never a room full of looping exhibit audio.
 local Config = require(game:GetService("ReplicatedStorage").Shared.ExhibitSoundConfig)
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 local Audio = {}
 local entries = {}
 local nextAllowed = 0
+
+local function effectsGain()
+    local player = Players.LocalPlayer
+    if player == nil then return 1 end
+    local master = player:GetAttribute("MasterVolume")
+    local effects = player:GetAttribute("EffectsVolume")
+    return math.clamp(if type(master) == "number" then master else 1, 0, 1)
+        * math.clamp(if type(effects) == "number" then effects else 1, 0, 1)
+end
 
 function Audio.Add(joint)
     if joint:GetAttribute("MotionChannel") == "chassis" then return end
@@ -12,7 +22,7 @@ function Audio.Add(joint)
     local sound = Instance.new("Sound")
     sound.Name = "ExhibitAccentSound"
     sound.SoundId = spec.SoundId
-    sound.Volume = spec.Volume
+    sound.Volume = spec.Volume * effectsGain()
     sound.RollOffMode = Enum.RollOffMode.InverseTapered
     -- Allow for the third-person camera behind the player.
     sound.RollOffMinDistance = 8
@@ -41,7 +51,7 @@ function Audio.Update(time)
             nextAllowed = time + math.max(1.5, spec.MaxDuration + 0.15)
             entry.nextPlay = (math.floor(time / spec.Period) + 1) * spec.Period
             if entry.nextPlay - time < 2 then entry.nextPlay += spec.Period end
-            sound.Volume = spec.Volume
+            sound.Volume = spec.Volume * effectsGain()
             sound.TimePosition = spec.StartTime or 0
             sound:Play()
             task.delay(math.max(0, spec.MaxDuration - 0.12), function()
@@ -49,7 +59,7 @@ function Audio.Update(time)
                 local fade = TweenService:Create(sound, TweenInfo.new(0.12), { Volume = 0 })
                 fade:Play()
                 fade.Completed:Once(function()
-                    if sound.Parent then sound:Stop(); sound.Volume = spec.Volume end
+                    if sound.Parent then sound:Stop(); sound.Volume = spec.Volume * effectsGain() end
                 end)
             end)
         end

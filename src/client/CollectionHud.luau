@@ -94,6 +94,24 @@ function CollectionHud.Start(player: Player, pane: ScrollingFrame, openCollectio
     outline.Transparency = 0.35
     outline.Thickness = 2
     outline.Parent = header
+    local collectionCueToken = 0
+    local feedback = ReplicatedStorage.Network:WaitForChild("Feedback") :: RemoteEvent
+    feedback.OnClientEvent:Connect(function(payload)
+        if type(payload) ~= "table" or payload.cue ~= "CollectionChanged"
+            or not pane.Visible then return end
+        collectionCueToken += 1
+        local token = collectionCueToken
+        outline.Transparency = 0
+        if player:GetAttribute("ReduceMotion") ~= true then
+            TweenService:Create(outline, TweenInfo.new(0.55), {
+                Transparency = 0.35,
+            }):Play()
+        else
+            task.delay(0.55, function()
+                if token == collectionCueToken then outline.Transparency = 0.35 end
+            end)
+        end
+    end)
     local title = label(header, "Title", "MY COLLECTION", 22, WHITE)
     title.Position = UDim2.fromOffset(15, 8)
     title.Size = UDim2.new(1, -30, 0, 29)
@@ -106,13 +124,13 @@ function CollectionHud.Start(player: Player, pane: ScrollingFrame, openCollectio
     tip.Position = UDim2.fromOffset(16, 55)
     tip.Size = UDim2.new(1, -30, 0, 18)
     tip.ZIndex = 105
-    local auto = button(header, "AutoMode", "AUTO: APPROVED ITEMS", CYAN)
+    local auto = button(header, "AutoMode", "AUTO EQUIP BEST", CYAN)
     auto.Position = UDim2.fromOffset(15, 79)
     auto.Size = UDim2.new(0.53, -20, 0, 26)
     local manual = button(header, "ManualMode", "MANUAL STANDS", BLUE)
     manual.Position = UDim2.new(0.53, 0, 0, 79)
     manual.Size = UDim2.new(0.47, -15, 0, 26)
-    auto.Activated:Connect(function() send("Auto", nil, nil) end)
+    auto.Activated:Connect(function() send("AutoBest", nil, nil) end)
     manual.Activated:Connect(function() send("Manual", nil, nil) end)
 
     local guide = Instance.new("Frame")
@@ -216,11 +234,11 @@ function CollectionHud.Start(player: Player, pane: ScrollingFrame, openCollectio
     nudgeTitle.Position = UDim2.fromOffset(12, 7)
     nudgeTitle.Size = UDim2.new(1, -82, 0, 19)
     nudgeTitle.ZIndex = 66
-    local nudgeBody = label(nudge, "Instruction", "See how Auto, Manual and safe storage work.", 11, WHITE)
+    local nudgeBody = label(nudge, "Instruction", "Stored items earn $0. Put your best items on stands.", 11, WHITE)
     nudgeBody.Position = UDim2.fromOffset(12, 28)
     nudgeBody.Size = UDim2.new(1, -24, 0, 19)
     nudgeBody.ZIndex = 66
-    local nudgeOpen = button(nudge, "OpenCollection", "OPEN COLLECTION", CYAN)
+    local nudgeOpen = button(nudge, "OpenCollection", "AUTO EQUIP BEST", CYAN)
     nudgeOpen.Position = UDim2.fromOffset(12, 55)
     nudgeOpen.Size = UDim2.new(1, -24, 0, 30)
     nudgeOpen.ZIndex = 67
@@ -230,7 +248,6 @@ function CollectionHud.Start(player: Player, pane: ScrollingFrame, openCollectio
     nudgeClose.ZIndex = 67
     local nudgeDismissed = false
     local overlay = screen:FindFirstChild("OperationsOverlay") :: GuiObject?
-    nudgeOpen.Activated:Connect(openCollection)
     nudgeClose.Activated:Connect(function()
         nudgeDismissed = true
         nudge.Visible = false
@@ -311,7 +328,7 @@ function CollectionHud.Start(player: Player, pane: ScrollingFrame, openCollectio
         return walkChoiceSlot ~= nil and walkSlot == walkChoiceSlot
     end
     local function updateNudge()
-        nudge.Visible = not nudgeDismissed and walkItemId ~= nil
+        nudge.Visible = not nudgeDismissed and walkItemId ~= nil and walkSlot == nil
             and player:GetAttribute("CollectionTutorialDone") ~= true
             and player:GetAttribute("CarryId") == nil
             and not pane.Visible
@@ -341,9 +358,8 @@ function CollectionHud.Start(player: Player, pane: ScrollingFrame, openCollectio
                 break
             end
         end
-        walkthrough.Visible = pane.Visible and not walkDismissed
-            and player:GetAttribute("CollectionTutorialDone") ~= true
-            and walkItemId ~= nil
+        -- The first saved item already has a stand. Keep instructions contextual.
+        walkthrough.Visible = false
         updateNudge()
         local narrow = pane.AbsoluteSize.X < 340
         local walkHeight = if narrow then 188 else 145
@@ -399,14 +415,14 @@ function CollectionHud.Start(player: Player, pane: ScrollingFrame, openCollectio
         end
         local guideY = if walkthrough.Visible then 134 + walkHeight + 12 else 134
         guide.Position = UDim2.fromOffset(10, guideY)
-        count.Text = tostring(state.displayCapacity or 3) .. " STANDS  /  "
-            .. tostring(state.storageUsed or 0) .. "/"
-            .. tostring(state.storageCapacity or 10) .. " STORAGE"
+        local displayed = 0
+        for _, entry in state.items do if entry.slot ~= nil then displayed += 1 end end
+        count.Text = tostring(displayed) .. "/" .. tostring(state.displayCapacity or 3)
+            .. " DISPLAYED  /  " .. tostring(state.storageUsed or 0) .. " STORED"
         auto.BackgroundColor3 = if mode == "Auto" then CYAN else Color3.fromRGB(70, 94, 92)
         manual.BackgroundColor3 = if mode == "Manual" then BLUE else Color3.fromRGB(70, 94, 92)
-        tip.Text = if mode == "Auto"
-            then "SAFE: half income  /  PUBLIC: full income  /  STORAGE: $0"
-            else "Choose a safe or public stand. Replaced items stay owned."
+        tip.Text = "MUSEUM +$" .. tostring(player:GetAttribute("IncomePerMinute") or 0)
+            .. "/MIN  /  STORAGE $0"
         local y = guideY + (if guide.Visible then 124 else 0)
         local rowHeight = if mode == "Manual" then (if narrow then 150 else 132)
             else (if narrow then 112 else 96)
@@ -577,15 +593,19 @@ function CollectionHud.Start(player: Player, pane: ScrollingFrame, openCollectio
         nudgeDismissed = true
         render()
     end)
+    nudgeOpen.Activated:Connect(function()
+        send("AutoBest", nil, nil)
+        nudgeDismissed = true
+        updateNudge()
+    end)
     player:GetAttributeChangedSignal("CollectionState"):Connect(render)
+    player:GetAttributeChangedSignal("IncomePerMinute"):Connect(render)
     player:GetAttributeChangedSignal("CollectionTutorialDone"):Connect(render)
     player:GetAttributeChangedSignal("CarryId"):Connect(updateNudge)
     player:GetAttributeChangedSignal("TutorialStep"):Connect(render)
     pane:GetPropertyChangedSignal("AbsoluteSize"):Connect(render)
     pane:GetPropertyChangedSignal("Visible"):Connect(function()
-        if pane.Visible and not guideDismissed then
-            guide.Visible = true
-        end
+        guide.Visible = false
         render()
     end)
     if overlay then overlay:GetPropertyChangedSignal("Visible"):Connect(updateNudge) end

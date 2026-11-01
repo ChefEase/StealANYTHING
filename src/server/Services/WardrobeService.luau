@@ -8,18 +8,18 @@ local PurchaseRules = require(script.Parent.Parent.Domain.WardrobePurchaseRules)
 local WardrobeService = {}
 local pending: {[number]: { id: string, operationId: string }} = {}
 
-local function purchase(player: Player, id: string): (boolean, string)
+local function purchase(player: Player, id: string): (boolean, string, boolean)
     local item = Catalog.ById[id]
     if item == nil or item.currency ~= "Cash" or item.price <= 0 then
-        return false, "That item is unavailable."
+        return false, "That item is unavailable.", false
     end
     local existing = pending[player.UserId]
-    if existing and existing.id ~= id then return false, "Finish the previous purchase first." end
+    if existing and existing.id ~= id then return false, "Finish the previous purchase first.", false end
     if player:GetAttribute("ProfileState") ~= "Ready" and existing == nil then
-        return false, "Museum data is not ready."
+        return false, "Museum data is not ready.", false
     end
     local operationId = existing and existing.operationId or ProfileService.NewOperationId(player)
-    if operationId == nil then return false, "Museum data is not ready." end
+    if operationId == nil then return false, "Museum data is not ready.", false end
     pending[player.UserId] = { id = id, operationId = operationId }
     for attempt = 1, 3 do
         local operation, status = ProfileService.ApplyOperation(player, operationId,
@@ -29,19 +29,19 @@ local function purchase(player: Player, id: string): (boolean, string)
         if operation then
             pending[player.UserId] = nil
             if operation.resultCode == "Purchased" then
-                return true, item.name .. " unlocked for $" .. item.price .. "."
+                return true, item.name .. " unlocked for $" .. item.price .. ".", true
             elseif operation.resultCode == "AlreadyOwned" then
-                return true, "Already owned. No cash spent."
+                return true, "Already owned. No cash spent.", false
             end
-            return false, "Not enough cash."
+            return false, "Not enough cash.", false
         end
         if status ~= "RetryableError" and status ~= "SaveError" then
             pending[player.UserId] = nil
-            return false, "Purchase stopped: " .. status
+            return false, "Purchase stopped: " .. status, false
         end
         if attempt < 3 then task.wait(2) end
     end
-    return false, "Purchase save is uncertain. Retry this item; no second charge will be made."
+    return false, "Purchase save is uncertain. Retry this item; no second charge will be made.", false
 end
 
 function WardrobeService.Start()

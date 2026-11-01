@@ -29,12 +29,14 @@ local lastFeedback: {[number]: number} = {}
 local reconciling: {[number]: boolean} = {}
 local feedback: RemoteEvent? = nil
 
-local function tell(player: Player, message: string, kind: string?)
+local function tell(player: Player, message: string, kind: string?, cue: string?, cueId: string?)
     local now = os.clock()
-    if now - (lastFeedback[player.UserId] or -math.huge) < 0.65 then return end
+    if cue == nil and now - (lastFeedback[player.UserId] or -math.huge) < 0.65 then return end
     lastFeedback[player.UserId] = now
     if feedback ~= nil and player.Parent == Players then
-        feedback:FireClient(player, { text = message, kind = kind or "Info" })
+        feedback:FireClient(player, {
+            text = message, kind = kind or "Info", cue = cue, cueId = cueId,
+        })
     end
 end
 
@@ -96,11 +98,13 @@ local function process(player: Player, record: Pending)
         CarryService.FinishDelivery(player, record.carryId)
         lastResult[player.UserId] = record.carryId
         if operation.result == "Committed" and record.tutorial then
-            tell(player, "Tutorial complete! Your toaster earns $6/min while you play.", "Success")
+            tell(player, "Tutorial complete! Your toaster earns $6/min while you play.",
+                "Success", "DeliveredDisplayed", record.runId)
         elseif operation.result == "Committed" and operation.resultCode == "DuplicateSalvaged" then
             local item = ItemCatalog.ById[record.itemId]
             tell(player, "Duplicate delivered! +$"
-                .. tostring(item.baseIncomePerMinute * 3) .. " salvage.", "Success")
+                .. tostring(item.baseIncomePerMinute * 3) .. " salvage.",
+                "Success", "DeliveredSalvage", record.runId)
         elseif operation.result == "Committed" then
             local snapshot = ProfileService.GetSnapshot(player)
             local slots = snapshot and snapshot.displaySlots
@@ -108,8 +112,9 @@ local function process(player: Player, record: Pending)
                 or slots.exposed_02 == record.itemId)
             tell(player, ItemCatalog.ById[record.itemId].name
                 .. (if displayed then " displayed! Open Menu > Collection to choose Auto, Manual or safe storage."
-                    else " stored safely. Open Menu > Collection to place it on a stand."),
-                "Success")
+                    else " saved to Collection. Stands full; use Auto Equip Best or choose a stand."),
+                "Success", if displayed then "DeliveredDisplayed" else "DeliveredStored",
+                record.runId)
         else
             tell(player, "That delivery was already processed.", "Info")
         end

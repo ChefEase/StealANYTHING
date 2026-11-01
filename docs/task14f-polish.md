@@ -1,0 +1,43 @@
+# Task 14F — first-heist polish record (1 November 2026)
+
+This follows the [Game Experience Cue Audit](game-experience-cue-audit.md). It is a source and limited Studio test record, not an unfamiliar-player or six-player acceptance report. The main checklist is in `development_plan.md`.
+
+## Phase A — first heist
+
+The connected museum Studio account had tutorial step 2. The full fresh-profile sequence from spawn through first dollar could not be timed. In Studio Play, the existing free ride reached the depot in **0.32 seconds** from the assigned museum and landed **5.85 studs** from the guided toaster. With a replayed protected toaster, the pickup prompt and world marker appeared. A direct run along the old compass line hit a public-stock pedestal and lost about **8 seconds**. A clear, manually steered return took **31.7 seconds** from the depot vicinity to the receiving zone at **12 studs/s** carry speed. Holding G for 0.75 seconds completed the replay delivery. Replay preserves the saved collection, so this did not test a committed first delivery or first income.
+
+Changed `src/client/TutorialGuideController.luau`: corrected “studs to depot” to “studs to toaster” at the pedestal and added local, tutorial-only side-lane and depot-exit targets before the museum target. The first one-turn version still led toward a plaza collision hull; the final side lane was moved to x=660 for the tested plot and split into two turns. The museum Studio instance closed before the final route could be walked. Other assigned plots, phone pickup/delivery, controller, lobby transfer and a genuinely fresh account remain manual tests. The ordinary public-stock route, carry speed and delivery rules were not changed.
+
+## Phase B — pickup
+
+Changed `src/client/PickupFeedbackController.luau` and `Bootstrap.client.luau`. The local highlight appears only during a real pickup prompt hold and is removed on release, hiding or trigger. A seven-particle maximum burst uses the built-in Roblox sparkle texture and the item's catalog rarity colour. Low-effects reduces it to two particles; reduce-motion removes it. The burst is keyed to a new server-replicated CarryId plus valid CarryItemId, so a local hold alone cannot claim success. A 0.5-second cooldown prevents stacking.
+
+Studio Play replay test: hold highlight appeared; a completed protected pickup produced a local burst; a cancelled 0.3-second hold produced no carry, burst or lingering highlight. The later user-supplied replacement pickup sound is recorded in the audio follow-up below.
+
+## Phase C — delivery, earnings and collection
+
+Changed `src/client/DeliveryFeedbackController.luau`, `CarryInputController.luau`, `CashHud.luau`, `CollectionHud.luau`, `Bootstrap.client.luau`, `src/server/Services/DeliveryService.luau` and `ExhibitArrangementService.luau`. A local highlight appears near the player's own receiving zone while carrying. The existing touch hold bar remains; keyboard G now shows a brief input-progress bar. `DeliveryInProgress` from the server changes the zone to a “SAVING DELIVERY” state; it clears on server completion/cancellation. A committed delivery sends a result cue for displayed, stored or salvage; an uncommitted result sends no cue. A saved arrangement sends a Collection success cue. The first tutorial dollar has a short cash HUD label and outline pulse only on tutorial step 1→2. Reduced-motion avoids the outline tween.
+
+Studio Play verified receiving glow, server `AtDropOff`, keyboard hold bar creation and a completed safe replay delivery with no lingering bar. `TutorialLoop.spec.luau` and `Task14C.spec.luau` passed in Studio Edit after source sync. These do **not** prove a live public committed delivery, stored-result cue, failed-save cleanup, first-dollar pulse or live Collection pulse. The server has no delivery-hold-begin contract; the 0.5-second hold percentage is explicitly local input feedback, while saving/result state is server authoritative. Later user-supplied sounds are recorded below.
+
+## Phase D — audio and settings
+
+Changed `src/server/Services/ProfileService.luau` and `src/client/ExhibitAudio.luau`. Saved master/music/effects volume and reduce-motion/low-effects values now reach that player's attributes. Existing client-local exhibit one-shots use master × effects volume. The later user-supplied soundtrack wiring is recorded below. There is no in-game settings UI or active UpdateSettings service in source, so the values cannot yet be changed or tested through normal gameplay. Existing server-world warp/door sounds have not been converted to per-player gain and need separate audio routing if per-player mute is required.
+
+The asset-loading warning for `rbxassetid://203785492` appeared in both Studio places; source text search did not locate its owner. It is unrelated to the new cues and needs asset inspection in Studio. No audio success is claimed.
+
+## Phase E — secondary polish and acceptance
+
+Changed `PickupFeedbackController.luau` for a nearby, short local outline when a public stock prompt transitions from empty to available; the server's existing restock countdown remains unchanged. This cue was not observed through a full restock cycle. In the lobby Studio Play, the queue card, Play prompt and wardrobe prompt existed and the card showed a Studio-preview status. The actual reserved-server transfer, phone layout and six-player session were not run. Task 14B Warden animation/audio remains separate.
+
+Initial source checks: both museum and lobby Rojo builds passed; `git diff --check` passed. The main plan lists every open manual and asset-dependent item. Time three unfamiliar first sessions, including a child and a phone player, before rating first-90-second hookability again.
+
+## User-supplied audio and door follow-up
+
+The owner supplied replacement pickup `444895479`, displayed delivery `9125557143`, provisional stored delivery `226892749`, first-dollar replacement `17403146731`, and equip `1280748610`. The earlier pickup `2848703459` has Valve-game metadata and was not used; the earlier coin `241560707` was replaced at the owner's request. All five selected assets loaded in both museum and lobby Studio Play. `HeistAudioController.luau` plays pickup only on a new server-replicated carry identity, delivery only on a committed server result carrying its run ID, and equip only on a committed Collection result carrying its request ID. First-dollar audio uses the persisted tutorial step 1→2. Per-cue and global cooldowns limit stacking; duplicate IDs are ignored. Actual post-change pickup, public displayed/stored delivery, equip and fresh-profile first-dollar playback remain untested.
+
+The three user-selected music tracks have separate contexts: Lo-fi Chill A `9043887091` in the lobby, Relaxed Scene `1848354536` in the museum between carries, and Up To No Good `1837323245` during an active carry. The configured volumes before player settings are 0.032, 0.028 and 0.035. One context is selected at a time with a brief quiet crossfade. Guard warning/chase/extraction and action cues duck the music. No Warden sound was added. Both places loaded and played all three raw assets in Studio. Museum Play loaded the new music instances, switched to carry music under a temporary local carry-attribute override, and faded near zero under a temporary local master-volume override. A technical loop test showed `TimePosition` wrapping with playback continuing for all three, but an audible seam and mix require human listening. The open lobby Studio window has not synced the new Rojo source, so live lobby-context playback was not verified there. Runtime loading also does not prove publication rights.
+
+The owner reported passing through museum doors. `MuseumDoors.luau` made an opening leaf noncollidable during its swing and never restored collision. The fix restores collision after a completed tween in either position. Museum Studio Play observed half-open doors in the original and cloned museum with both leaves collidable; a ray cast through each visible leaf hit that leaf. Physical avatar passage and interrupted/random swings still need testing. Both Rojo builds and `git diff --check` passed after the follow-up. Museum Play reported no new script errors; the pre-existing `203785492` asset-type warning remains.
+
+**Mix and VFX correction:** The owner heard the new sounds as barely audible and identified missing wardrobe and clickable HUD feedback. The later corrected volumes, server-confirmed wardrobe effects, shared UI input feedback, cross-place inventory and remaining listening tests are in [the full cue inventory](task14f-full-cue-inventory.md). Its volume numbers supersede the earlier starting values in this record.

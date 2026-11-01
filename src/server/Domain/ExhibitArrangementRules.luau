@@ -2,6 +2,7 @@
 
 local Balance = require(game:GetService("ReplicatedStorage").Shared.BalanceConfig)
 local BestPublicDisplays = require(script.Parent.BestPublicDisplays)
+local AutoEquipBest = require(script.Parent.AutoEquipBest)
 
 local Rules = {}
 
@@ -33,6 +34,10 @@ end
 
 function Rules.Apply(profile: any, action: string, itemId: string?,
     slotId: string?): (string, string)
+    if action == "AutoBest" then
+        if AutoEquipBest.Apply(profile) then return "Committed", "AutoBestEquipped" end
+        return "Rejected", "AlreadyBest"
+    end
     if action == "Auto" then
         if profile.publicDisplayMode == "Auto" then return "Rejected", "AlreadyAuto" end
         profile.publicDisplayMode = "Auto"

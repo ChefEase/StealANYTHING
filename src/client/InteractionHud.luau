@@ -28,6 +28,13 @@ local function inputName(prompt: ProximityPrompt, inputType: Enum.ProximityPromp
     return prompt.KeyboardKeyCode.Name
 end
 
+local function displayActionName(prompt: ProximityPrompt, phone: boolean): string
+    if phone and prompt:GetAttribute("CompactShuttlePrompt") == true then
+        return if prompt.Name == "ReturnToMuseum" then "RIDE HOME" else "RIDE SHUTTLE"
+    end
+    return string.upper(prompt.ActionText)
+end
+
 function InteractionHud.Create(parent: ScreenGui, player: Player)
     local root = Instance.new("Frame")
     root.Name = "InteractionPrompt"
@@ -187,6 +194,7 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
     collapsedOutline.Transparency = 0
     collapsedOutline.Parent = collapsedButton
 
+    local compactShuttle = false
     local function updateLayout()
         if PhoneHudLayout.IsPhone(parent) then
             local rect = PhoneHudLayout.Calculate(parent.AbsoluteSize).prompt
@@ -230,6 +238,35 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
             collapsedButton.Position = UDim2.new(0.5, 0, 1, -32)
             collapsedButton.Size = UDim2.fromOffset(196, 38)
         end
+        if compactShuttle then
+            local phone = PhoneHudLayout.IsPhone(parent)
+            if phone then
+                local width = math.min(210, parent.AbsoluteSize.X - 28)
+                root.AnchorPoint = Vector2.zero
+                root.Position = UDim2.fromOffset(math.floor((parent.AbsoluteSize.X - width) / 2),
+                    parent.AbsoluteSize.Y - 84)
+                root.Size = UDim2.fromOffset(width, 62)
+            else
+                root.AnchorPoint = Vector2.new(0.5, 1)
+                root.Position = UDim2.new(0.5, 0, 1, -32)
+                root.Size = UDim2.fromOffset(250, 64)
+            end
+            keyButton.Position = UDim2.fromOffset(8, 6)
+            keyButton.Size = UDim2.fromOffset(44, 44)
+            keyButton.TextSize = if phone then 17 else 20
+            holdText.Position = UDim2.fromOffset(8, 51)
+            holdText.Size = UDim2.fromOffset(44, 10)
+            holdText.TextSize = 9
+            action.Position = UDim2.fromOffset(62, 6)
+            action.Size = UDim2.new(1, -89, 0, 21)
+            action.TextSize = if phone then 11 else 12
+            object.Position = UDim2.fromOffset(62, 27)
+            object.Size = UDim2.new(1, -71, 0, 17)
+            object.TextSize = 10
+            progressTrack.Position = UDim2.fromOffset(62, 52)
+            progressTrack.Size = UDim2.new(1, -71, 0, 4)
+            collapsedButton.Size = UDim2.fromOffset(172, 34)
+        end
     end
     parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout)
     updateLayout()
@@ -264,6 +301,8 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
     local function showPreview()
         currentPrompt = nil
         currentRemoteAction = nil
+        compactShuttle = false
+        updateLayout()
         holdStarted = nil
         root.Visible = false
         collapsedButton.Visible = false
@@ -281,6 +320,8 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
         if seatedOnBench then return end
         prompt.Style = Enum.ProximityPromptStyle.Custom
         currentPrompt = prompt
+        compactShuttle = prompt:GetAttribute("CompactShuttlePrompt") == true
+        updateLayout()
         currentRemoteAction = nil
         lastInputType = inputType
         holdStarted = nil
@@ -292,7 +333,8 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
             then "TAP TO OPEN DETAILS"
             else verb .. " <font color=\"#4AEBc2\">[ " .. inputName(prompt, inputType) .. " ]</font>  · OPEN DETAILS"
         holdText.Text = if prompt.HoldDuration > 0 then "HOLD" else "PRESS"
-        action.Text = string.upper(if prompt.ActionText ~= "" then prompt.ActionText else "INTERACT")
+        action.Text = if prompt.ActionText ~= "" then displayActionName(prompt,
+            PhoneHudLayout.IsPhone(parent)) else "INTERACT"
         object.Text = if prompt.ObjectText ~= "" then prompt.ObjectText else ""
         local stockId = prompt:GetAttribute("StockItemId")
         local item = if type(stockId) == "string" then ItemCatalog.ById[stockId] else nil
@@ -380,6 +422,8 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
 
         currentPrompt = nil
         currentRemoteAction = if type(prompt.action) == "string" then prompt.action else "BeginPickup"
+        compactShuttle = false
+        updateLayout()
         holdStarted = nil
         root.Visible = true
         collapsedButton.Visible = false
@@ -492,7 +536,7 @@ function InteractionHud.Create(parent: ScreenGui, player: Player)
             if prompt then
                 keyButton.Text = inputName(prompt, lastInputType)
                 holdText.Text = if prompt.HoldDuration > 0 then "HOLD" else "PRESS"
-                action.Text = string.upper(prompt.ActionText)
+                action.Text = displayActionName(prompt, PhoneHudLayout.IsPhone(parent))
                 object.Text = prompt.ObjectText
                 progressFill.Size = UDim2.fromScale(0,1)
             else

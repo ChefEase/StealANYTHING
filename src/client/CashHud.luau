@@ -1,6 +1,7 @@
 --!strict
 
 local Theme = require(script.Parent.HudTheme)
+local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local ItemCatalog = require(game:GetService("ReplicatedStorage").Shared.ItemCatalog)
 local Balance = require(game:GetService("ReplicatedStorage").Shared.BalanceConfig)
@@ -166,6 +167,7 @@ function CashHud.Create(parent: ScreenGui, player: Player)
 
     local lastCash: number? = nil
     local gainToken = 0
+    local firstDollarUntil = 0
     local function render()
         local cash = player:GetAttribute("Cash")
         balance.Text = if type(cash) == "number" then formatCash(cash) else "$---"
@@ -192,6 +194,10 @@ function CashHud.Create(parent: ScreenGui, player: Player)
             gainToken += 1
             caption.Text = "CASH"
             caption.TextColor3 = MUTED
+        end
+        if os.clock() < firstDollarUntil then
+            caption.Text = "FIRST $1 EARNED"
+            caption.TextColor3 = CASH_GREEN
         end
         local rate = player:GetAttribute("IncomePerMinute")
         local rateText = if type(rate) == "number" and rate > 0
@@ -266,6 +272,31 @@ function CashHud.Create(parent: ScreenGui, player: Player)
     end
 
     player:GetAttributeChangedSignal("Cash"):Connect(render)
+    local lastTutorialStep = player:GetAttribute("TutorialStep")
+    player:GetAttributeChangedSignal("TutorialStep"):Connect(function()
+        local current = player:GetAttribute("TutorialStep")
+        if lastTutorialStep == 1 and current == 2 then
+            firstDollarUntil = os.clock() + 2.2
+            outline.Color = CASH_GREEN
+            outline.Transparency = 0
+            outline.Thickness = 2
+            if player:GetAttribute("ReduceMotion") ~= true then
+                TweenService:Create(outline, TweenInfo.new(0.8), {
+                    Transparency = 0.3,
+                    Thickness = 1,
+                }):Play()
+            end
+            task.delay(2.2, function()
+                if os.clock() < firstDollarUntil then return end
+                outline.Color = Theme.Outline
+                outline.Transparency = 0.3
+                outline.Thickness = 1
+                render()
+            end)
+            render()
+        end
+        lastTutorialStep = current
+    end)
     player:GetAttributeChangedSignal("IncomePerMinute"):Connect(render)
     player:GetAttributeChangedSignal("CollectionState"):Connect(render)
     parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()

@@ -3,6 +3,7 @@
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PhoneHudLayout = require(script.Parent.PhoneHudLayout)
 local Theme = require(script.Parent.HudTheme)
 
@@ -62,12 +63,34 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
     local distance = makeLabel("Distance", panel, 63, 20, 12,
         Theme.Muted)
 
+    local ride = Instance.new("TextButton")
+    ride.Name = "TutorialRideToDepot"
+    ride.Size = UDim2.fromOffset(210, 48)
+    ride.BackgroundColor3 = accent
+    ride.TextColor3 = Theme.Ink
+    ride.Font = Enum.Font.GothamBlack
+    ride.TextSize = 16
+    ride.Text = "RIDE TO DEPOT  »"
+    ride.Visible = false
+    ride.ZIndex = 18
+    ride.Parent = screen
+    local rideCorner = Instance.new("UICorner")
+    rideCorner.CornerRadius = UDim.new(0, 8)
+    rideCorner.Parent = ride
+    local rideRemote = ReplicatedStorage:WaitForChild("Network"):WaitForChild("RideToDepot") :: RemoteEvent
+    local rideRequestedAt = -math.huge
+    ride.Activated:Connect(function()
+        if os.clock() - rideRequestedAt < 2 then return end
+        rideRequestedAt = os.clock()
+        rideRemote:FireServer()
+    end)
+
     local marker = Instance.new("BillboardGui")
     marker.Name = "TutorialWorldMarker"
     marker.Size = UDim2.fromOffset(176, 42)
     marker.StudsOffsetWorldSpace = Vector3.new(0, 5, 0)
-    marker.AlwaysOnTop = true
-    marker.MaxDistance = 500
+    marker.AlwaysOnTop = false
+    marker.MaxDistance = 150
     marker.Enabled = false
     marker.ResetOnSpawn = false
     marker.Parent = player:WaitForChild("PlayerGui")
@@ -86,6 +109,18 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
 
     local depotTarget: BasePart? = nil
     local museumTarget: BasePart? = nil
+    local museumModel: Model? = nil
+    local departureWaypoint: BasePart? = nil
+    local escapeWaypoint: BasePart? = nil
+    local guidedCarryId: any = nil
+    local reachedSideLane = false
+    local escapedDepot = false
+    local function refreshDepotTarget()
+        if depotTarget ~= nil and depotTarget.Parent ~= nil then return end
+        local runtime = workspace:FindFirstChild("TutorialRuntime")
+        local anchor = runtime and runtime:FindFirstChild("TutorialPickupTarget")
+        if anchor ~= nil and anchor:IsA("BasePart") then depotTarget = anchor end
+    end
     task.spawn(function()
         local runtime = workspace:WaitForChild("TutorialRuntime", 20)
         local anchor = runtime and runtime:WaitForChild("TutorialPickupTarget", 10)
@@ -94,6 +129,7 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
 
     local function refreshMuseumTarget()
         museumTarget = nil
+        museumModel = nil
         local plotId = player:GetAttribute("AssignedPlotId")
         local cloneId = player:GetAttribute("MuseumCloneId")
         if type(plotId) ~= "string" or type(cloneId) ~= "string" then return end
@@ -103,11 +139,62 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
         if museum == nil or museum:GetAttribute("CloneId") ~= cloneId
             or museum:GetAttribute("OwnerUserId") ~= player.UserId then return end
         local target = museum:FindFirstChild("ReceivingZone", true)
-        if target ~= nil and target:IsA("BasePart") then museumTarget = target end
+        if target ~= nil and target:IsA("BasePart") then
+            museumTarget = target
+            museumModel = museum
+        end
     end
     player:GetAttributeChangedSignal("AssignedPlotId"):Connect(refreshMuseumTarget)
     player:GetAttributeChangedSignal("MuseumCloneId"):Connect(refreshMuseumTarget)
     task.defer(refreshMuseumTarget)
+
+    local function getEscapeWaypoint(): BasePart?
+        if escapeWaypoint ~= nil and escapeWaypoint.Parent ~= nil then return escapeWaypoint end
+        if museumModel == nil then return nil end
+        local map = workspace:FindFirstChild("Map")
+        local expansion = map and map:FindFirstChild("ExpansionDistrict")
+        local depot = expansion and expansion:FindFirstChild("Depot")
+        local platform = depot and depot:FindFirstChild("Platform")
+        if platform == nil or not platform:IsA("BasePart")
+            or museumModel:GetPivot().Position.Z <= platform.Position.Z then return nil end
+        local side = if museumModel:GetPivot().Position.X < platform.Position.X then -1 else 1
+        local point = Instance.new("Part")
+        point.Name = "LocalTutorialDepotExit"
+        point.Size = Vector3.new(0.2, 0.2, 0.2)
+        point.Position = platform.Position + Vector3.new(
+            side * (platform.Size.X / 2 + 15), 3, platform.Size.Z / 2 + 5)
+        point.Transparency = 1
+        point.Anchored = true
+        point.CanCollide = false
+        point.CanQuery = false
+        point.CanTouch = false
+        point.Parent = workspace
+        escapeWaypoint = point
+        return point
+    end
+    local function getDepartureWaypoint(exit: BasePart): BasePart?
+        if departureWaypoint ~= nil and departureWaypoint.Parent ~= nil then
+            return departureWaypoint
+        end
+        if depotTarget == nil then return nil end
+        local point = Instance.new("Part")
+        point.Name = "LocalTutorialSideLane"
+        point.Size = Vector3.new(0.2, 0.2, 0.2)
+        point.Position = Vector3.new(exit.Position.X, exit.Position.Y,
+            depotTarget.Position.Z + 2)
+        point.Transparency = 1
+        point.Anchored = true
+        point.CanCollide = false
+        point.CanQuery = false
+        point.CanTouch = false
+        point.Parent = workspace
+        departureWaypoint = point
+        return point
+    end
+    screen.Destroying:Connect(function()
+        if departureWaypoint then departureWaypoint:Destroy() end
+        if escapeWaypoint then escapeWaypoint:Destroy() end
+    end)
 
     local previousStep: number? = nil
     local celebrationUntil = 0
@@ -156,6 +243,18 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
 
     RunService.RenderStepped:Connect(function()
         local phone = PhoneHudLayout.IsPhone(screen)
+        local layout = if phone then PhoneHudLayout.Calculate(screen.AbsoluteSize) else nil
+        if layout then
+            ride.AnchorPoint = Vector2.zero
+            ride.Size = UDim2.fromOffset(math.min(210, layout.carry.w), 48)
+            ride.Position = if layout.landscape
+                then UDim2.fromOffset(layout.carry.x, layout.carry.y + layout.carry.h + 5)
+                else UDim2.fromOffset(math.floor((screen.AbsoluteSize.X - 210) / 2),
+                    layout.guide.y + layout.guide.h + 8)
+        else
+            ride.AnchorPoint = Vector2.new(.5, 1)
+            ride.Position = UDim2.new(.5, 0, 1, -92)
+        end
         local notice = screen:FindFirstChild("Notification")
         local noticeVisible = phone and notice ~= nil and notice:IsA("GuiObject") and notice.Visible
         if phone then
@@ -197,9 +296,23 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
             or player:GetAttribute("PlotState") ~= "Ready" then
             panel.Visible = false
             marker.Enabled = false
+            ride.Visible = false
             return
         end
+        if museumModel == nil or museumModel.Parent == nil then refreshMuseumTarget() end
         local replaying = player:GetAttribute("TutorialReplayActive") == true
+        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        local atMuseum = root ~= nil and root:IsA("BasePart") and museumModel ~= nil
+            and (Vector3.new(root.Position.X, 0, root.Position.Z)
+                - Vector3.new(museumModel:GetPivot().Position.X, 0,
+                    museumModel:GetPivot().Position.Z)).Magnitude <= 60
+        local tutorialStep = player:GetAttribute("TutorialStep")
+        local firstRide = tutorialStep == 0 or replaying
+        local repeatRide = tutorialStep == 2 and os.clock() < celebrationUntil
+        ride.Visible = (firstRide or repeatRide)
+            and player:GetAttribute("CarryId") == nil
+            and atMuseum and os.clock() - rideRequestedAt >= 2
+        ride.Text = if repeatRide then "STEAL AGAIN  >>" else "RIDE TO DEPOT  >>"
         if not replaying and replayWatchUntil > 0 then
             if (player:GetAttribute("Cash") or 0) > replayCashAtStart
                 or os.clock() >= replayWatchUntil then
@@ -210,9 +323,9 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
                 marker.Enabled = false
                 arrow.Rotation = 0
                 arrow.Text = utf8.char(10003)
-                step.Text = "TUTORIAL 3/3  -  WATCH YOUR REWARD"
-                instruction.Text = "Your saved exhibits keep earning."
-                distance.Text = "Watch your cash increase."
+                step.Text = "EARN  /  FIRST REWARD"
+                instruction.Text = "Your displayed exhibit earns cash."
+                distance.Text = "Watch the first $1 appear."
                 return
             end
         end
@@ -226,7 +339,6 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
             distance.Text = "Your collection and rewards are unchanged."
             return
         end
-        local tutorialStep = player:GetAttribute("TutorialStep")
         if not replaying and type(tutorialStep) == "number" and tutorialStep >= 1 then
             local show = tutorialStep == 1 or os.clock() < celebrationUntil
             panel.Visible = tutorialStep <= 2 and show and not noticeVisible
@@ -235,13 +347,14 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
                 arrow.Rotation = 0
                 arrow.Text = utf8.char(10003)
                 if tutorialStep == 1 then
-                    step.Text = "TUTORIAL 3/3  -  WATCH YOUR REWARD"
-                    instruction.Text = "Your toaster earns while you play."
-                    distance.Text = "Watch your cash rise by $1."
+                    step.Text = "EARN  /  YOUR MUSEUM IS WORKING"
+                    instruction.Text = "Your toaster earns $6/min."
+                    distance.Text = "First $1 arrives in about 10 seconds."
                 else
                     step.Text = "FIRST HEIST COMPLETE"
-                    instruction.Text = "Next: a public depot heist."
-                    distance.Text = "Public stock opens in a later build."
+                    instruction.Text = "Now steal public stock for your museum."
+                    distance.Text = if ride.Visible then "Tap STEAL AGAIN for public stock."
+                        else "Choose a new item at the depot."
                 end
             end
             return
@@ -249,25 +362,62 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
 
         arrow.Text = utf8.char(9650)
         local carrying = player:GetAttribute("CarryId") ~= nil
+        refreshDepotTarget()
         if museumTarget == nil or museumTarget.Parent == nil then refreshMuseumTarget() end
-        local target = if carrying then museumTarget else depotTarget
+        local carryId = player:GetAttribute("CarryId")
+        if carryId ~= guidedCarryId then
+            guidedCarryId = carryId
+            reachedSideLane = false
+            escapedDepot = false
+        end
+        local exit = if carrying and not escapedDepot then getEscapeWaypoint() else nil
+        local routeWaypoint: BasePart? = nil
+        if exit ~= nil and root ~= nil and root:IsA("BasePart") then
+            if root.Position.Z >= exit.Position.Z + 5 then
+                reachedSideLane = true
+                escapedDepot = true
+            end
+            local sideLane = getDepartureWaypoint(exit)
+            if sideLane ~= nil and not reachedSideLane then
+                if (Vector3.new(root.Position.X, 0, root.Position.Z)
+                    - Vector3.new(sideLane.Position.X, 0, sideLane.Position.Z)).Magnitude <= 5
+                    or math.abs(root.Position.X - exit.Position.X) <= 5 then
+                    reachedSideLane = true
+                else
+                    routeWaypoint = sideLane
+                end
+            end
+            local platformZ = exit.Position.Z - 40
+            if reachedSideLane and not escapedDepot then
+                if (Vector3.new(root.Position.X, 0, root.Position.Z)
+                    - Vector3.new(exit.Position.X, 0, exit.Position.Z)).Magnitude <= 14
+                    or root.Position.Z >= platformZ + 45 then
+                    escapedDepot = true
+                else
+                    routeWaypoint = exit
+                end
+            end
+        end
+        local target = if routeWaypoint ~= nil then routeWaypoint
+            elseif carrying then museumTarget else depotTarget
         local hiddenForAction = phone and (noticeVisible
             or (not carrying and activePickupPrompt ~= nil)
             or (carrying and player:GetAttribute("AtDropOff") == true))
         panel.Visible = not hiddenForAction
-        -- The floating stand label obscures the route and duplicates the
-        -- directional guide. Keep only the depot marker for the first pickup.
-        marker.Enabled = not carrying and target ~= nil and not hiddenForAction
+        -- A short world sign confirms the destination without drawing through walls.
+        marker.Enabled = target ~= nil and not hiddenForAction
         marker.Adornee = target
-        markerText.Text = "DEPOT: TUTORIAL TOASTER"
-        step.Text = if carrying then "TUTORIAL 2/3  -  BRING IT HOME" else "TUTORIAL 1/3  -  YOUR FIRST PICKUP"
+        markerText.Text = if routeWaypoint ~= nil and routeWaypoint == departureWaypoint then "CLEAR STOCK STANDS"
+            elseif routeWaypoint ~= nil and routeWaypoint == exit then "EXIT DEPOT"
+            elseif carrying then "▼ DISPLAY HERE" else "▼ STEAL HERE"
+        step.Text = if carrying then "ESCAPE  /  DISPLAY IT" else "STEAL  /  YOUR FIRST ITEM"
         if target == nil then
             instruction.Text = "Finding your route..."
             distance.Text = ""
             return
         end
         local character = player.Character
-        local root = character and character:FindFirstChild("HumanoidRootPart")
+        root = character and character:FindFirstChild("HumanoidRootPart")
         local camera = workspace.CurrentCamera
         if root == nil or not root:IsA("BasePart") or camera == nil then return end
 
@@ -280,16 +430,19 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
             local direction = toTarget.Unit
             arrow.Rotation = math.deg(math.atan2(direction:Dot(right.Unit), direction:Dot(forward.Unit)))
         end
-        distance.Text = tostring(studs) .. " STUDS TO " .. (if carrying then "GREEN DROP-OFF CARPET" else "DEPOT")
+        distance.Text = tostring(studs) .. " STUDS TO " .. (if routeWaypoint ~= nil and routeWaypoint == departureWaypoint then "SIDE LANE"
+            elseif routeWaypoint ~= nil and routeWaypoint == exit then "DEPOT EXIT"
+            elseif carrying then "GREEN DROP-OFF CARPET" else "TOASTER")
         if carrying then
             instruction.Text = if player:GetAttribute("AtDropOff") == true
                 then (if phone then "Stand here to deliver the toaster."
                     else "Press " .. deliverName() .. " to deliver the toaster.")
-                else "Stand on the green carpet to deliver."
+                elseif routeWaypoint ~= nil then "Go around the stock stands, then head home."
+                else "Follow the arrow. Stand on green to display."
         else
             instruction.Text = if studs <= 12
                 then "Hold " .. interactName() .. " to take the toaster."
-                else "Follow the arrow to the depot."
+                else (if ride.Visible then "Tap RIDE to start your heist." else "Follow the arrow to the depot.")
         end
     end)
 end

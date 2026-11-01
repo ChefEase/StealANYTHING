@@ -2,10 +2,14 @@
 -- Roblox draws both controls. Only the local player's relevant prompt is shown.
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
-local lobby = workspace:WaitForChild("HeistLobby")
+local lobby = workspace:WaitForChild("HeistLobby", 60)
+if not lobby then return end
+local seat1 = lobby:WaitForChild("LoungeSeat1", 60)
+local seat2 = lobby:WaitForChild("LoungeSeat2", 60)
+if not seat1 or not seat2 or not seat1:IsA("Seat") or not seat2:IsA("Seat") then return end
 local seats = {
-    lobby:WaitForChild("LoungeSeat1") :: Seat,
-    lobby:WaitForChild("LoungeSeat2") :: Seat,
+    seat1,
+    seat2,
 }
 
 local humanoid: Humanoid? = nil

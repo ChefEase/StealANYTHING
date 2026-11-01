@@ -22,6 +22,25 @@ function WardrobeService.Start()
             if not ok or type(profile) ~= "table" or type(profile.cosmetics) ~= "table" then
                 return nil
             end
+            local settings = profile.settings
+            if type(settings) == "table" then
+                for key, attribute in {
+                    masterVolume = "MasterVolume",
+                    musicVolume = "MusicVolume",
+                    effectsVolume = "EffectsVolume",
+                } do
+                    local value = settings[key]
+                    if type(value) == "number" and value == value then
+                        player:SetAttribute(attribute, math.clamp(value, 0, 1))
+                    end
+                end
+                if type(settings.reduceMotion) == "boolean" then
+                    player:SetAttribute("ReduceMotion", settings.reduceMotion)
+                end
+                if type(settings.lowEffects) == "boolean" then
+                    player:SetAttribute("LowEffects", settings.lowEffects)
+                end
+            end
             return profile.cosmetics
         end,
     })

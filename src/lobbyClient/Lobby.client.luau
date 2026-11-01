@@ -4,10 +4,19 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SocialService = game:GetService("SocialService")
 local player = Players.LocalPlayer
 require(ReplicatedStorage.Shared.WardrobeUi).Start(player, nil, false)
+require(ReplicatedStorage.Shared.HeistMusic).Start(player, "Lobby", nil)
+require(ReplicatedStorage.Shared.UiFeedback).Start(player)
+require(ReplicatedStorage.Shared.WardrobeRoomVfx).Start(player)
+require(ReplicatedStorage.Shared.LobbyPlanningVfx).Start(player)
 local statusRemote = ReplicatedStorage:WaitForChild("MatchStatus") :: RemoteEvent
 local controlRemote = ReplicatedStorage:WaitForChild("MatchControl") :: RemoteEvent
-local playPrompt = workspace:WaitForChild("HeistLobby")
-    :WaitForChild("DeploymentPromptAnchor"):WaitForChild("PlayHeistPrompt") :: ProximityPrompt
+local lobby = workspace:WaitForChild("HeistLobby", 60)
+local promptAnchor = lobby and lobby:WaitForChild("DeploymentPromptAnchor", 60)
+local playPrompt = promptAnchor and promptAnchor:WaitForChild("PlayHeistPrompt", 60)
+if not playPrompt or not playPrompt:IsA("ProximityPrompt") then
+    warn("[Steal Anything Lobby] Deployment prompt was not built")
+    return
+end
 
 local screen = Instance.new("ScreenGui")
 screen.Name = "MatchmakingLobby"

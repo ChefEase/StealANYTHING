@@ -349,11 +349,77 @@ These are proposed targets requiring route, avatar, camera, and largest-object t
 
 **Later stages, explicitly deferred:**
 
-- [ ] **14A:** Create/rig/animate the custom Blender Warden only after baseline gameplay acceptance.
-- [ ] **14B:** Heartbeat, cinematic effects, voiceovers, VFX, subtitles and tutorial presentation after gameplay acceptance. Use tutorial-only, non-repeating guidance hooks; presentation cannot choose targets or decide captures.
+- [ ] **14A:** Create/rig/animate the custom Blender Warden only after baseline gameplay acceptance **and Tasks 14C–14E player-experience work**.
+- [ ] **14B:** Heartbeat, cinematic effects, voiceovers, VFX, subtitles and tutorial presentation after gameplay and Tasks 14C–14E acceptance. Use tutorial-only, non-repeating guidance hooks; presentation cannot choose targets or decide captures.
 - [ ] **14B final regression:** Repeat multiplayer, route fairness and mobile/performance acceptance after the new character and effects are integrated.
 
 **Task 14 exit:** Resolve the confirmed extraction/startup issues, finish required capture/diagnostic integrations and live baseline acceptance above, and record explicit decisions for conditional speed work and the Task 16 dependency. Do not mark adaptive search or deferred presentation as prerequisites for a playable baseline. Supporting evidence: [focused review](docs/task14-final-review.md) and [guard implementation](docs/task14-guards.md). This main checklist must be updated whenever work is completed or deferred.
+
+#### Tasks 14C, 14D and 14E — player experience (priority before 14A/14B)
+
+**Audit complete, implementation pending (1 November 2026):** A new player saved items but could not tell why they were not displayed or earning expected income. The exact saved slots and physical displays were not captured, so the cause in that particular session is unconfirmed. Existing rules already place the tutorial toaster on the protected stand and a first unique public item on an empty public stand. With both public stands full, later items are stored safely and earn $0; existing Auto considers only approved public items. The lobby locker already opens the shared wardrobe, but cash purchases are intentionally museum-only and Robux looks are previews. Full architecture, risks and manual tests: [14C–14E audit](docs/task14-cde-audit.md). This first pass changed documentation only.
+
+**Implementation follow-up (1 November):** Added a separate server Auto Equip Best action over available owned exhibits, preserving manual placement and the protected first-income tutorial lock. The Collection header now shows displayed/stored counts and $/min; full-stand delivery feedback names Auto Equip Best. Removed the long automatic Collection walkthrough in favour of a one-action stored-item nudge. The tutorial world marker now identifies both pickup and receiving stand. The existing lobby wardrobe sign and prompt remain, with a restrained outline highlight. These code changes have not been accepted on a fresh child's first session or in the separate lobby place. [Full VFX/SFX and first-90-second audit](docs/game-experience-cue-audit.md).
+
+- [x] **14C.1 Audit collection, displays and income:** Existing first-item placement, approved-only Auto, manual placement, safe storage, protected half-rate income, schema checks and visual reconstruction were inspected. Reproduce the reported case with saved slot/approval state, income rate and `RegisteredDisplays` before attributing it to a specific code defect.
+- [x] **14C.2 Confirm first-item automatic display in rules:** Existing protected tutorial placement and first public empty-stand placement were preserved; no allocation defect was proven in the reported session. Physical display reconstruction still needs targeted repro with that profile.
+- [x] **14C.3 Auto Equip Best and manual override implemented:** The new server action selects up to two highest earners for public stands and the next best for the protected half-rate stand from available owned items, preserving displaced items and deterministic ties. Manual placement still changes mode. The Collection UI has a one-click action, displayed/stored counts and $/min; full-stand delivery feedback points to it. Studio Edit `Task14C.spec.luau` passed protected tutorial income, stored items, total rate, idempotence, manual override, invalid IDs/slots and schema. Live save/rejoin remains in 14C.4.
+- [ ] **14C.4 Persistence/protection tests:** Fresh and returning players, full stands/storage, duplicate and invalid IDs, missing exhibits, manual override, failed save, rejoin, protected/public rates, raid lock and physical models.
+- [x] **14D quick-start source and Studio smoke test (1 November):** The tutorial offers one tap on the existing free museum-to-depot ride near the player's museum. The short STEAL / ESCAPE / DISPLAY / EARN guide gives a temporary STEAL AGAIN action after the first earned dollar. Server ride checks and protected first-item rules remain in place; the return route remains a real carry. Pickup-target lookup now recovers if the runtime marker appears after the guide starts. Studio Play confirmed the guide, world pickup marker, both button states and an actual free ride. This is not an 8/10 child-retention result; timed unfamiliar-player testing remains required before 14A/14B.
+- [x] **14D.1 Audit tutorial presentation:** Existing pickup/delivery/income/replay steps and the verbose three-step Collection walkthrough were inspected. A shorter action-gated presentation is designed in the audit; no tutorial code changed.
+- [x] **14D.2 Initial simplification implemented:** Existing tutorial state and HUD compass remain. A world sign now points at both the guided pickup and receiving stand; the automatic long Collection walkthrough is suppressed and a short stored-item nudge offers Auto Equip Best. The existing protected delivery/first-income step is unchanged. This is an initial presentation pass, not proof that children understand the whole STEAL → ESCAPE → DISPLAY → EARN → UPGRADE → REPEAT loop.
+- [ ] **14D.3 Replay and beginner test:** Reuse existing safe replay/idempotence and guard protection; test each rejoin boundary and at least three unfamiliar players, including a phone player and a child in the target age range. Time ride discovery, pickup, first return, delivery, first $1 and second-heist choice within 90 seconds. Record help requests, wrong turns, skipped prompts, whether stored items and $0 storage income are understood, and a candid 1–10 enjoyment score. Accept an 8/10 hook only when real participants reach the first satisfying payoff within 90 seconds without coaching; revise the route or prompts if they do not.
+- [x] **14E.1 Audit lobby integration:** `OpenWardrobe` prompt, shared `WardrobeUi`/`WardrobeSession`, cross-place wardrobe store, museum-only cash purchases and preview-only Robux states already exist. Do not duplicate purchase logic.
+- [x] **14E.2 Locker clarity in source:** Existing Open Wardrobe prompt and shared UI retained; sign now says “OPEN WARDROBE / TRY ON + EQUIP” and display has a restrained outline. Existing UI already distinguishes owned/equip, buy at museum and preview-only Robux looks. Separate lobby-place sync and visual/touch acceptance remain open.
+- [ ] **14E.3 Cross-place regression:** Prompt reachability on touch/controller; preview/equip/remove/restore; lobby → museum → lobby ownership/loadout; disabled lobby cash purchase and preview-only Robux; DataStore failure. Any future lobby cash checkout requires a separate authorized museum-profile transaction design, with no new products or prices.
+
+Complete the 14C–14E player-experience work and beginner acceptance before starting 14A or 14B. Preserve Task 14 guard contracts and the existing Tasks 1–13 economy/persistence rules while implementing these later steps.
+
+### 14F. Game experience polish — first heist and confirmed feedback
+
+**Status (1 November 2026):** Phase A–E source work and limited Studio checks are recorded in [the Task 14F test record](docs/task14f-polish.md). The November 1 [cue audit](docs/game-experience-cue-audit.md) remains the design reference. This pass kept existing pickup, route, delivery, income, collection and Warden rules. User-supplied action audio and three context-based music tracks are configured and loaded in Studio; human listening, live action tests, mobile, and multiplayer acceptance remain open.
+
+**14F-A — first heist**
+
+- [ ] Time a genuinely fresh player from spawn through first earned dollar, including lobby transfer; record each stage and help request. The Studio account available here was already at tutorial step 2.
+- [x] Check depot and receiving navigation in Studio: ride took 0.32s and arrived 5.85 studs from the toaster. A replay carry took 31.7s from depot vicinity to the receiving zone on a clear route; the initial straight arrow first wasted about 8s against a public pedestal. Tutorial-only side-lane guidance was added; its final x=660 lane remains to be walked after the museum Studio session closed.
+- [ ] Test pickup and delivery on a physical phone and controller.
+- [x] Correct the misleading “studs to depot” label at the toaster and add a short tutorial-only side-lane/exit cue. Preserve ordinary heist routes and carry speed; verify the final side lane in Studio before accepting its navigation quality.
+
+**14F-B — pickup feedback**
+
+- [x] Add a local pickup-hold highlight; Studio replay saw it appear during the hold and disappear afterward.
+- [x] Configure user-supplied replacement pickup sound `444895479` on a server-confirmed new carry. Studio Play loaded the clip in both places. Live pickup audio, listening quality, and publication permission still need human confirmation.
+- [x] Add a small rarity-coloured burst using Roblox's existing built-in sparkles texture, with low-effects and reduce-motion handling.
+- [x] Confirm the burst follows a server-created CarryId/CarryItemId: live replay pickup produced it; a cancelled 0.3s hold produced none.
+
+**14F-C — delivery and rewards**
+
+- [x] Add a local receiving-zone glow; Studio replay showed it only near the zone while carrying.
+- [ ] Finish authoritative delivery progress acceptance: a local G/touch hold bar shows input duration and the server DeliveryInProgress attribute shows “SAVING DELIVERY.” Replay delivery completed and cleared the bar, but a slow committed save, cancellation and rejected delivery still need live checks. The hold percentage itself remains client input feedback.
+- [x] Wire distinct displayed `9125557143` and provisional stored `226892749` sounds to committed server results with run-ID deduplication. Both assets loaded in both Studio places; real public displayed/stored deliveries still need testing.
+- [ ] Verify the first-dollar HUD pulse and `17403146731` cue on a fresh profile; both respond to the persisted tutorial step 1→2. The replacement asset loaded in both Studio places.
+- [ ] Verify Collection/equip success pulse and `1280748610` cue with a live saved arrangement. The cue requires the server's committed arrangement result and request ID; the asset loaded in both Studio places.
+
+**14F-D — music and settings**
+
+- [ ] Confirm publication rights for the three user-selected Creator Store music tracks in both places. Studio Play loaded all three in both places; runtime access alone does not establish the license or published-experience access.
+- [x] Add low-volume context music: `9043887091` in the lobby, `1848354536` in the museum between carries, and `1837323245` while carrying. The museum context switch and technical loop wrap passed in Studio. The open lobby Studio window has not synced the new Rojo source, so live lobby playback and audible loop seams remain open.
+- [ ] Finish volume/settings acceptance: saved master, music, effects, reduce-motion and low-effects values replicate to their player. Client exhibit and new action cues use master × effects; music uses master × music. Museum Play tested muting via a local attribute override. In-game settings controls and other world sounds remain unverified.
+- [ ] Test mute, reduce-motion and low-effects on devices with real profile values.
+
+**14F-E — secondary polish**
+
+- [x] **Shuttle HUD size follow-up:** The depot return and original-museum district shuttle now use compact interaction panels and smaller floating signs. Studio Play confirmed both desktop prompts at 250 × 64 pixels and their distinct labels; phone-specific shorthand still needs device review. Pickup and delivery prompt sizes are unchanged.
+- [ ] Improve lobby/queue only if manual first-session testing demonstrates a gap. Studio Play showed the existing queue card, Play prompt and wardrobe prompt; actual lobby→museum transfer is untested.
+- [ ] Verify the new nearby local restock glow in a live restock; existing authoritative countdown was retained.
+- [ ] Coordinate Warden audio/animation cues in Task 14B; no Warden cue changes were made here.
+- [ ] Measure mobile and six-player performance, effect cleanup and sound stacking in a real Studio multiplayer session.
+- [x] Correct museum entrance-door collision: open leaves were left noncollidable after swinging; both open and closed leaves now become solid after tween completion. Museum Studio Play observed half-open doors with both leaves collidable. Test physically with an avatar on both sides and during a random swing before final acceptance.
+
+**14F audio/VFX correction after owner feedback:** The first action/music mix was too quiet, and the wardrobe and clickable HUD had no shared feedback. See the [full cross-place cue inventory](docs/task14f-full-cue-inventory.md) for every live HUD family, action and model category, current cue, and remaining asset/test need. Action levels are now 0.36–0.48, neutral UI click 0.28, music 0.11–0.12, local exhibit accents 0.18–0.24, door 0.38 and Phantom Glow aura 0.10 before saved volume settings. The existing warp remains 0.8. All clickable HUD buttons in both places now have a short press-time input click and a short visual tap; these do not claim server success. Wardrobe purchase/equip/remove/restore now receives a distinct server-confirmed result ID, which triggers a panel flash and, for look changes, a temporary character highlight and equip cue. Studio Play confirmed a menu click and a valid server wardrobe Remove result produced these objects. Audible loudness, phone, saved muted/reduced-effects settings and six-player mixing remain open.
+
+**14F visual design follow-up:** The owner correctly rejected the first static locker glow as inadequate. The [reference-led VFX review](docs/task14f-vfx-review.md) records the full live scene/action audit, actual Studio checks and visual limitations. The locker **room** now has a local moving scan/trail across its doors, floor projection, rising motifs, a floating garment focal projection and a prompt response; the mannequin remains separate. The lobby planning table has a miniature museum projection with moving route pings. Museum restock gains a local arrival shimmer, and committed delivery gains a short result burst; a local receiving marker appears only while carrying. Museum exhibit recipes, existing warp effects and Task 14B Warden presentation were preserved. The neutral HUD tap now uses short clip `226892749` at 0.28 and starts on mouse/touch press; Studio Play verified it preceded the lobby MORE action. The open lobby Studio place was manually synced and its music/locker/planning effects played. **Acceptance remains open:** visual quality on a phone, real gameplay results, sound mix by ear, six-player performance, and saved settings. Do not rate this pass 8/10 or complete based on source or solo Studio checks.
 
 ### 15. Add heavy, noisy, and bouncy carrying
 

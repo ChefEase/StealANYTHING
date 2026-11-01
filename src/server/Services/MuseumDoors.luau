@@ -59,11 +59,14 @@ end
 local function setLeaf(leaf: Leaf, open: boolean)
     if leaf.isOpen == open then return end
     leaf.isOpen = open
-    -- An open leaf rests against the inside wall; only a closed leaf blocks.
-    if open then leaf.part.CanCollide = false end
+    -- The moving leaf must not shove a player; once the swing completes, the
+    -- visible panel is solid in either position.
+    leaf.part.CanCollide = false
     local tween = TweenService:Create(leaf.part, SWING, { CFrame = if open then leaf.open else leaf.closed })
-    tween.Completed:Connect(function()
-        if not leaf.isOpen then leaf.part.CanCollide = true end
+    tween.Completed:Connect(function(state)
+        if state == Enum.PlaybackState.Completed and leaf.part.Parent ~= nil then
+            leaf.part.CanCollide = true
+        end
     end)
     tween:Play()
 end

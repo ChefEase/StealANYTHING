@@ -20,6 +20,7 @@ local MESSAGES = {
     Placed = "Exhibit placed on a public stand.",
     PlacedProtected = "Exhibit placed on the protected stand at half income.",
     AutoEnabled = "Automatic display is on for approved items.",
+    AutoBestEquipped = "Your best earning exhibits are displayed. Other items stay saved.",
     ManualEnabled = "Manual display selection is on.",
     StorageFull = "Storage is full. Make room before storing another item.",
     FinishTutorial = "Earn the toaster's first displayed dollar before rearranging it.",
@@ -27,9 +28,11 @@ local MESSAGES = {
     InvalidSlot = "That display stand is not available.",
 }
 
-local function tell(player: Player, message: string, kind: string)
+local function tell(player: Player, message: string, kind: string, cue: string?, cueId: string?)
     if feedback ~= nil and player.Parent == Players then
-        feedback:FireClient(player, { text = message, kind = kind })
+        feedback:FireClient(player, {
+            text = message, kind = kind, cue = cue, cueId = cueId,
+        })
     end
 end
 
@@ -69,7 +72,8 @@ local function arrange(player: Player, action: any, itemId: any,
         end)
     if operation ~= nil and operation.result == "Committed" then
         PlotService.RefreshDisplays(player)
-        tell(player, MESSAGES[operation.resultCode] or "Collection updated.", "Success")
+        tell(player, MESSAGES[operation.resultCode] or "Collection updated.",
+            "Success", "CollectionChanged", requestId)
     elseif status == "SaveError" or status == "RetryableError" then
         tell(player, "Saving delayed. Try again in a moment.", "Error")
     else

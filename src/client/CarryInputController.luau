@@ -22,6 +22,7 @@ function CarryInputController.Start(player: Player, screen: ScreenGui)
     local heldTouch: InputObject? = nil
     local touchSerial = 0
     local touchStarted = 0
+    local keyboardStarted = 0
 
     local panel = Instance.new("Frame")
     panel.Name = "TouchDelivery"
@@ -89,6 +90,30 @@ function CarryInputController.Start(player: Player, screen: ScreenGui)
     progressFill.ZIndex = 23
     progressFill.Parent = progressTrack
 
+    local keyboardTrack = Instance.new("Frame")
+    keyboardTrack.Name = "KeyboardDeliveryProgress"
+    keyboardTrack.AnchorPoint = Vector2.new(0.5, 1)
+    keyboardTrack.Position = UDim2.new(0.5, 0, 1, -112)
+    keyboardTrack.Size = UDim2.fromOffset(184, 28)
+    keyboardTrack.BackgroundColor3 = Theme.Ink
+    keyboardTrack.BorderSizePixel = 0
+    keyboardTrack.Visible = false
+    keyboardTrack.Parent = screen
+    local keyboardLabel = Instance.new("TextLabel")
+    keyboardLabel.Size = UDim2.new(1, 0, 0, 20)
+    keyboardLabel.BackgroundTransparency = 1
+    keyboardLabel.Font = Enum.Font.GothamBold
+    keyboardLabel.Text = "DELIVERING..."
+    keyboardLabel.TextColor3 = Theme.Text
+    keyboardLabel.TextSize = 12
+    keyboardLabel.Parent = keyboardTrack
+    local keyboardFill = Instance.new("Frame")
+    keyboardFill.Position = UDim2.fromOffset(4, 23)
+    keyboardFill.Size = UDim2.fromScale(0, 0)
+    keyboardFill.BackgroundColor3 = Theme.Accent
+    keyboardFill.BorderSizePixel = 0
+    keyboardFill.Parent = keyboardTrack
+
     local function deliverableId(): string?
         local currentId = player:GetAttribute("CarryId")
         if type(currentId) == "string" and currentId ~= ""
@@ -109,6 +134,7 @@ function CarryInputController.Start(player: Player, screen: ScreenGui)
         if inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
             local hadHold = heldId ~= nil
             heldId = nil
+            keyboardTrack.Visible = false
             pressSerial += 1
             return if hadHold then Enum.ContextActionResult.Sink else Enum.ContextActionResult.Pass
         end
@@ -118,10 +144,13 @@ function CarryInputController.Start(player: Player, screen: ScreenGui)
             pressSerial += 1
             local serial = pressSerial
             heldId = currentId
+            keyboardStarted = os.clock()
+            keyboardTrack.Visible = not PhoneHudLayout.IsPhone(screen)
             task.delay(HOLD_SECONDS, function()
                 if pressSerial == serial and heldId == currentId
                     and deliverableId() == currentId then
                     heldId = nil
+                    keyboardTrack.Visible = false
                     deliverRemote:FireServer(currentId)
                 end
             end)
@@ -144,6 +173,7 @@ function CarryInputController.Start(player: Player, screen: ScreenGui)
         elseif not carrying and bound then
             bound = false
             heldId = nil
+            keyboardTrack.Visible = false
             pressSerial += 1
             ContextActionService:UnbindAction(ACTION)
         end
@@ -186,6 +216,10 @@ function CarryInputController.Start(player: Player, screen: ScreenGui)
         end
     end)
     RunService.RenderStepped:Connect(function()
+        if keyboardTrack.Visible then
+            keyboardFill.Size = UDim2.fromOffset(math.floor((keyboardTrack.AbsoluteSize.X - 8)
+                * math.clamp((os.clock() - keyboardStarted) / HOLD_SECONDS, 0, 1)), 3)
+        end
         if heldTouch ~= nil then
             progressFill.Size = UDim2.fromScale(
                 math.clamp((os.clock() - touchStarted) / HOLD_SECONDS, 0, 1), 1)

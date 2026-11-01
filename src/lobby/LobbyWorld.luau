@@ -148,7 +148,17 @@ local function finishWardrobeDisplay(lobby: Model, display: Model)
     local oldSign = lobby:FindFirstChild("LockerSign")
     local label = oldSign and oldSign:FindFirstChildOfClass("SurfaceGui")
     local text = label and label:FindFirstChildOfClass("TextLabel")
-    if text then text.Text = "ROBBER WARDROBE\nTRY ON + EQUIP" end
+    if text then text.Text = "OPEN WARDROBE\nTRY ON + EQUIP" end
+    local highlight = display:FindFirstChild("WardrobeHighlight")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "WardrobeHighlight"
+        highlight.FillTransparency = 1
+        highlight.OutlineColor = Color3.fromRGB(74, 235, 194)
+        highlight.OutlineTransparency = 0.55
+        highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+        highlight.Parent = display
+    end
 end
 
 local function addDeploymentPrompt(lobby: Model)
@@ -217,6 +227,62 @@ local function addWardrobeDisplay(lobby: Model)
     finishWardrobeDisplay(lobby, display)
 end
 
+local function addWardrobeRoomBeacon(lobby: Model)
+    if lobby:FindFirstChild("WardrobeRoomBeacon") then return end
+    local beacon = Instance.new("Model")
+    beacon.Name = "WardrobeRoomBeacon"
+    beacon.Parent = lobby
+    local function neon(name: string, size: Vector3, position: Vector3): Part
+        local item = part(beacon, name, size, position, TEAL, Enum.Material.Neon, false)
+        item.Transparency = 0.45
+        item.CanQuery = false
+        item.CanTouch = false
+        return item
+    end
+    -- Outline the locker bank itself, not the nearby mannequin.
+    for _, x in { 15.1, 32.9 } do
+        neon("LockerPortalSide", Vector3.new(0.28, 9.3, 0.28),
+            Vector3.new(x, 4.7, 22.95))
+    end
+    local header = neon("LockerPortalHeader", Vector3.new(18.1, 0.32, 0.3),
+        Vector3.new(24, 9.5, 22.95))
+    local light = Instance.new("PointLight")
+    light.Name = "WardrobeRoomLight"
+    light.Color = TEAL
+    light.Brightness = 0.8
+    light.Range = 16
+    light.Parent = header
+    local title = part(beacon, "WardrobePortalTitle", Vector3.new(15, 1.4, 0.22),
+        Vector3.new(24, 10.6, 22.9), Color3.fromRGB(10, 30, 29),
+        Enum.Material.Metal, false)
+    title.CanQuery = false
+    for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+        local surface = Instance.new("SurfaceGui")
+        surface.Face = face
+        surface.PixelsPerStud = 50
+        surface.LightInfluence = 0
+        surface.Parent = title
+        local text = Instance.new("TextLabel")
+        text.Size = UDim2.fromScale(1, 1)
+        text.BackgroundTransparency = 1
+        text.Text = "WARDROBE  •  OPEN + EQUIP"
+        text.TextColor3 = Color3.fromRGB(137, 255, 224)
+        text.Font = Enum.Font.GothamBlack
+        text.TextScaled = true
+        text.Parent = surface
+    end
+    -- A short floor route catches the eye from the central spawn without a
+    -- floating marker or a collision obstacle.
+    for index, x in { 8, 12, 16 } do
+        for side in { -1, 1 } do
+            local arrow = neon("WardrobeFloorArrow" .. index,
+                Vector3.new(1.5, 0.05, 0.22), Vector3.new(x, 0.07, 19.5))
+            arrow.CFrame = CFrame.new(x, 0.07, 19.5 + side * 0.42)
+                * CFrame.Angles(0, math.rad(side * 35), 0)
+        end
+    end
+end
+
 local function configureLighting(model: Model)
     Lighting.ClockTime = 23
     Lighting.Brightness = 1.2
@@ -245,6 +311,7 @@ function LobbyWorld.Build(): Model
         addLoungeSeats(existing)
         AssetPlacement.Apply(existing)
         addWardrobeDisplay(existing)
+        addWardrobeRoomBeacon(existing)
         addDeploymentPrompt(existing)
         configureLighting(existing)
         return existing
@@ -460,6 +527,7 @@ function LobbyWorld.Build(): Model
 
     AssetPlacement.Apply(model)
     addWardrobeDisplay(model)
+    addWardrobeRoomBeacon(model)
     addDeploymentPrompt(model)
     configureLighting(model)
     return model

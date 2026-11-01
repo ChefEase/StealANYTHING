@@ -2,12 +2,16 @@
 local SignatureVfx = require(script.Parent.SignatureVfx)
 
 local GuiService = game:GetService("GuiService")
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Catalog = require(script.Parent.WardrobeCatalog)
 local Appearance = require(script.Parent.WardrobeAppearance)
+local AudioConfig = require(script.Parent.HeistAudioConfig)
 
 local WardrobeUi = {}
 local INK = Color3.fromRGB(8, 15, 14)
@@ -61,6 +65,26 @@ end
 
 function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener: boolean?)
     SignatureVfx.Start()
+    local function wardrobePromptGlow(prompt: ProximityPrompt, visible: boolean)
+        if prompt.Name ~= "OpenWardrobe" then return end
+        local display = prompt:FindFirstAncestor("RobberWardrobeDisplay")
+        local outline = display and display:FindFirstChild("WardrobeHighlight")
+        if not outline or not outline:IsA("Highlight") then return end
+        local target = if visible and player:GetAttribute("LowEffects") ~= true then 0.08 else 0.55
+        if player:GetAttribute("ReduceMotion") == true then
+            outline.OutlineTransparency = target
+        else
+            TweenService:Create(outline, TweenInfo.new(0.2), {
+                OutlineTransparency = target,
+            }):Play()
+        end
+    end
+    ProximityPromptService.PromptShown:Connect(function(prompt)
+        wardrobePromptGlow(prompt, true)
+    end)
+    ProximityPromptService.PromptHidden:Connect(function(prompt)
+        wardrobePromptGlow(prompt, false)
+    end)
     local action = ReplicatedStorage:WaitForChild("WardrobeAction") :: RemoteEvent
     local state = ReplicatedStorage:WaitForChild("WardrobeState") :: RemoteEvent
     local playerGui = player:WaitForChild("PlayerGui")
@@ -97,6 +121,21 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     panel.ClipsDescendants = true
     panel.Parent = if menuHost then menuHost else shade
     rounded(panel, 12)
+    local successStroke = Instance.new("UIStroke")
+    successStroke.Name = "ConfirmedWardrobeGlow"
+    successStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    successStroke.Color = TEAL
+    successStroke.Thickness = 3
+    successStroke.Transparency = 1
+    successStroke.Parent = panel
+    local successSound = Instance.new("Sound")
+    successSound.Name = "WardrobeConfirmedSound"
+    successSound.SoundId = AudioConfig.Effects.Equip.SoundId
+    successSound.Volume = 0
+    successSound.Parent = SoundService
+    task.spawn(function()
+        pcall(function() ContentProvider:PreloadAsync({ successSound }) end)
+    end)
     local limit = Instance.new("UISizeConstraint")
     limit.MaxSize = Vector2.new(760, 580)
     limit.MinSize = Vector2.new(315, 310)
@@ -194,6 +233,21 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, 13), Vector3.new(0, 0, 0))
     camera.Parent = preview
     preview.CurrentCamera = camera
+    local resultBanner = Instance.new("TextLabel")
+    resultBanner.Name = "ConfirmedResultBanner"
+    resultBanner.AnchorPoint = Vector2.new(0.5, 1)
+    resultBanner.Position = UDim2.new(0.5, 0, 1, -7)
+    resultBanner.Size = UDim2.new(1, -16, 0, 28)
+    resultBanner.BackgroundColor3 = Color3.fromRGB(13, 61, 51)
+    resultBanner.BackgroundTransparency = 0.12
+    resultBanner.TextColor3 = WHITE
+    resultBanner.Font = Enum.Font.GothamBlack
+    resultBanner.TextSize = 15
+    resultBanner.Text = ""
+    resultBanner.Visible = false
+    resultBanner.ZIndex = 8
+    resultBanner.Parent = preview
+    rounded(resultBanner, 6)
 
     -- The badge identifies the live geometry effect rendered inside the viewport.
     local showcase = Instance.new("Frame")
@@ -273,6 +327,64 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
     arrange()
 
     local record: any = { ready = false, owned = {}, loadout = {} }
+    local seenCues: {[string]: number} = {}
+    local bannerToken = 0
+    local function confirmedCue(cue: string, cueId: string)
+        if seenCues[cueId] then return end
+        local now = os.clock()
+        seenCues[cueId] = now
+        for id, at in seenCues do
+            if now - at > 90 then seenCues[id] = nil end
+        end
+        bannerToken += 1
+        local thisBanner = bannerToken
+        resultBanner.Text = if cue == "Purchased" then "UNLOCKED  ✓" else "LOOK UPDATED  ✓"
+        resultBanner.BackgroundColor3 = if cue == "Purchased" then Color3.fromRGB(98, 66, 20)
+            else Color3.fromRGB(13, 61, 51)
+        resultBanner.Visible = true
+        task.delay(1.4, function()
+            if bannerToken == thisBanner and resultBanner.Parent then
+                resultBanner.Visible = false
+            end
+        end)
+        local master = player:GetAttribute("MasterVolume")
+        local effects = player:GetAttribute("EffectsVolume")
+        local gain = math.clamp(if type(master) == "number" then master else 1, 0, 1)
+            * math.clamp(if type(effects) == "number" then effects else 1, 0, 1)
+        if gain > 0 and successSound.IsLoaded then
+            successSound:Stop()
+            successSound.TimePosition = 0
+            successSound.Volume = AudioConfig.Effects.Equip.Volume * gain
+            successSound:Play()
+        end
+        if player:GetAttribute("LowEffects") == true then return end
+        successStroke.Color = if cue == "Purchased" then GOLD else TEAL
+        successStroke.Transparency = 0
+        if player:GetAttribute("ReduceMotion") == true then
+            task.delay(0.35, function()
+                if successStroke.Parent then successStroke.Transparency = 1 end
+            end)
+            return
+        end
+        TweenService:Create(successStroke, TweenInfo.new(0.65), {
+            Transparency = 1,
+        }):Play()
+        if cue == "LookChanged" and player.Character then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "LocalWardrobeEquipFlash"
+            highlight.Adornee = player.Character
+            highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+            highlight.FillColor = TEAL
+            highlight.OutlineColor = WHITE
+            highlight.FillTransparency = 0.82
+            highlight.OutlineTransparency = 0
+            highlight.Parent = player.Character
+            TweenService:Create(highlight, TweenInfo.new(0.7), {
+                FillTransparency = 1, OutlineTransparency = 1,
+            }):Play()
+            task.delay(0.75, function() highlight:Destroy() end)
+        end
+    end
     local selected = Catalog.DisplayItems[1]
     local rows: {[string]: TextButton} = {}
     local selectionImage = Instance.new("Frame")
@@ -458,6 +570,9 @@ function WardrobeUi.Start(player: Player, menuHost: ScrollingFrame?, showOpener:
         record = nextState
         if nextState.message then feedback.Text = tostring(nextState.message) end
         if nextState.open then open() else refresh() end
+        if type(nextState.cue) == "string" and type(nextState.cueId) == "string" then
+            confirmedCue(nextState.cue, nextState.cueId)
+        end
     end)
     player.CharacterAdded:Connect(function()
         task.delay(1.2, showPreview)
