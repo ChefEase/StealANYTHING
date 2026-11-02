@@ -60,6 +60,8 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
     local step = makeLabel("Step", panel, 8, 19, 12, accent)
     local instruction = makeLabel("Instruction", panel, 29, 30, 15,
         Theme.Text)
+    instruction.TextWrapped = true
+    instruction.TextTruncate = Enum.TextTruncate.None
     local distance = makeLabel("Distance", panel, 63, 20, 12,
         Theme.Muted)
 
@@ -257,6 +259,7 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
         end
         local notice = screen:FindFirstChild("Notification")
         local noticeVisible = phone and notice ~= nil and notice:IsA("GuiObject") and notice.Visible
+        local guardWarningVisible = screen:GetAttribute("GuardWarningVisible") == true
         if phone then
             local guide = PhoneHudLayout.Calculate(screen.AbsoluteSize).guide
             PhoneHudLayout.Apply(panel, guide)
@@ -267,10 +270,10 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
             step.Size = UDim2.new(1, -64, 0, 17)
             step.TextSize = 11
             instruction.Position = UDim2.fromOffset(58, 22)
-            instruction.Size = UDim2.new(1, -64, 0, 27)
+            instruction.Size = UDim2.new(1, -64, 0, 30)
             instruction.TextSize = 14
-            distance.Position = UDim2.fromOffset(58, 49)
-            distance.Size = UDim2.new(1, -64, 0, 16)
+            distance.Position = UDim2.fromOffset(58, 53)
+            distance.Size = UDim2.new(1, -64, 0, 15)
             distance.TextSize = 11
         else
             -- Keep the guide beside the action on desktop instead of covering
@@ -319,42 +322,43 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
                 replayWatchUntil = 0
                 replayCompletedUntil = os.clock() + 12
             else
-                panel.Visible = true
+                panel.Visible = not guardWarningVisible
                 marker.Enabled = false
                 arrow.Rotation = 0
                 arrow.Text = utf8.char(10003)
                 step.Text = "EARN  /  FIRST REWARD"
-                instruction.Text = "Your displayed exhibit earns cash."
-                distance.Text = "Watch the first $1 appear."
+                instruction.Text = "Your exhibit earns cash."
+                distance.Text = "Watch for your first $1."
                 return
             end
         end
         if not replaying and os.clock() < replayCompletedUntil then
-            panel.Visible = true
+            panel.Visible = not guardWarningVisible
             marker.Enabled = false
             arrow.Rotation = 0
             arrow.Text = utf8.char(10003)
-            step.Text = "TUTORIAL REPLAY COMPLETE"
-            instruction.Text = "You delivered the practice toaster."
-            distance.Text = "Your collection and rewards are unchanged."
+            step.Text = "REPLAY COMPLETE"
+            instruction.Text = "Practice run complete."
+            distance.Text = "Rewards unchanged."
             return
         end
         if not replaying and type(tutorialStep) == "number" and tutorialStep >= 1 then
             local show = tutorialStep == 1 or os.clock() < celebrationUntil
             panel.Visible = tutorialStep <= 2 and show and not noticeVisible
+                and not guardWarningVisible
             marker.Enabled = false
             if tutorialStep <= 2 and show then
                 arrow.Rotation = 0
                 arrow.Text = utf8.char(10003)
                 if tutorialStep == 1 then
-                    step.Text = "EARN  /  YOUR MUSEUM IS WORKING"
-                    instruction.Text = "Your toaster earns $6/min."
-                    distance.Text = "First $1 arrives in about 10 seconds."
+                    step.Text = "EARN  /  FIRST EXHIBIT"
+                    instruction.Text = "Toaster earns $6/min."
+                    distance.Text = "First $1 in about 10 sec."
                 else
                     step.Text = "FIRST HEIST COMPLETE"
-                    instruction.Text = "Now steal public stock for your museum."
-                    distance.Text = if ride.Visible then "Tap STEAL AGAIN for public stock."
-                        else "Choose a new item at the depot."
+                    instruction.Text = "Steal public stock next."
+                    distance.Text = if ride.Visible then "Tap STEAL AGAIN."
+                        else "Choose stock at the depot."
                 end
             end
             return
@@ -400,9 +404,9 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
         end
         local target = if routeWaypoint ~= nil then routeWaypoint
             elseif carrying then museumTarget else depotTarget
-        local hiddenForAction = phone and (noticeVisible
+        local hiddenForAction = guardWarningVisible or (phone and (noticeVisible
             or (not carrying and activePickupPrompt ~= nil)
-            or (carrying and player:GetAttribute("AtDropOff") == true))
+            or (carrying and player:GetAttribute("AtDropOff") == true)))
         panel.Visible = not hiddenForAction
         -- A short world sign confirms the destination without drawing through walls.
         marker.Enabled = target ~= nil and not hiddenForAction
@@ -410,7 +414,7 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
         markerText.Text = if routeWaypoint ~= nil and routeWaypoint == departureWaypoint then "CLEAR STOCK STANDS"
             elseif routeWaypoint ~= nil and routeWaypoint == exit then "EXIT DEPOT"
             elseif carrying then "▼ DISPLAY HERE" else "▼ STEAL HERE"
-        step.Text = if carrying then "ESCAPE  /  DISPLAY IT" else "STEAL  /  YOUR FIRST ITEM"
+        step.Text = if carrying then "ESCAPE  /  DISPLAY" else "STEAL  /  FIRST ITEM"
         if target == nil then
             instruction.Text = "Finding your route..."
             distance.Text = ""
@@ -432,17 +436,17 @@ function TutorialGuideController.Start(player: Player, screen: ScreenGui)
         end
         distance.Text = tostring(studs) .. " STUDS TO " .. (if routeWaypoint ~= nil and routeWaypoint == departureWaypoint then "SIDE LANE"
             elseif routeWaypoint ~= nil and routeWaypoint == exit then "DEPOT EXIT"
-            elseif carrying then "GREEN DROP-OFF CARPET" else "TOASTER")
+            elseif carrying then "DROP-OFF" else "TOASTER")
         if carrying then
             instruction.Text = if player:GetAttribute("AtDropOff") == true
-                then (if phone then "Stand here to deliver the toaster."
-                    else "Press " .. deliverName() .. " to deliver the toaster.")
-                elseif routeWaypoint ~= nil then "Go around the stock stands, then head home."
-                else "Follow the arrow. Stand on green to display."
+                then (if phone then "Stand here. Tap DELIVER."
+                    else "Press " .. deliverName() .. " to deliver.")
+                elseif routeWaypoint ~= nil then "Go around the stock stands."
+                else "Follow the arrow. Stand on green."
         else
             instruction.Text = if studs <= 12
                 then "Hold " .. interactName() .. " to take the toaster."
-                else (if ride.Visible then "Tap RIDE to start your heist." else "Follow the arrow to the depot.")
+                else (if ride.Visible then "Tap RIDE to reach the depot." else "Follow the arrow to the depot.")
         end
     end)
 end

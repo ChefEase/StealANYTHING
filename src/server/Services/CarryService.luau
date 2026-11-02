@@ -430,7 +430,12 @@ local function dropCarry(player: Player, carryId: any)
     clearCarryDisplay(player)
     restoreSpeed(player)
     setPickupEligible(player)
-    tell(player, "Carry lost. The pedestal will restock soon.", "Info")
+    if feedback ~= nil and player.Parent == Players then
+        feedback:FireClient(player, {
+            text = "Carry dropped. The pedestal will restock soon.",
+            kind = "Info", cue = "CarryDropped", cueId = carryId,
+        })
+    end
 end
 
 local function characterAdded(player: Player, character: Model)

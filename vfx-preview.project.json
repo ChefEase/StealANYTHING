@@ -1,0 +1,38 @@
+{
+  "name": "Steal Anything - VFX Preview (Local Only)",
+  "tree": {
+    "$className": "DataModel",
+    "Lighting": {
+      "$className": "Lighting",
+      "$properties": {
+        "ClockTime": 17.85,
+        "Brightness": 2.2,
+        "Ambient": [0.412, 0.427, 0.467],
+        "OutdoorAmbient": [0.486, 0.529, 0.58]
+      }
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "Baseplate": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "Size": [140, 1, 100],
+          "Position": [0, -0.5, 0],
+          "Color": [0.14, 0.17, 0.19]
+        }
+      }
+    },
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": { "$className": "Folder", "$path": "src/shared" }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "VfxPreview": { "$path": "vfx-preview" }
+      }
+    }
+  }
+}

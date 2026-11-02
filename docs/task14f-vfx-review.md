@@ -10,15 +10,33 @@ The [holographic fashion-editor concept](https://trinityvideogame.com/index.php/
 
 | Area or action | Existing presentation | Change and design judgment | Still needed |
 | --- | --- | --- | --- |
-| Lobby locker **room** | Lockers and a dark wall sign; mannequin preview off to the side | A garment projection floats above the locker bank. A moving scan and afterimage travel over the locker doors, with a matching floor projection and rising motifs. Approaching Open Wardrobe briefly intensifies the scan. The frame and floor chevrons are now supporting wayfinding, not the claimed VFX. The room effect is client-local and bounded. | Owner visual review from spawn/phone and a six-player performance check. The procedural garment may still look too blocky for final art quality; improve its authored shape before adding more particles. |
+| Lobby locker **room** | Lockers and a dark wall sign; mannequin preview off to the side | A layered garment projection floats in front of the locker bank. A moving scan and afterimage travel over the locker doors, with a matching floor projection and rising motifs. Approaching Open Wardrobe briefly intensifies the scan. The frame and floor chevrons are now supporting wayfinding, not the claimed VFX. The room effect is client-local and bounded. | Owner visual review from spawn/phone and a six-player performance check. The procedural garment may still look too blocky for final art quality; improve its authored shape before adding more particles. |
 | Lobby planning table | Flat blueprint and static route lines | A miniature projected museum and two moving route pings make the heist planning premise visible. The pings are decorative and never show real people or guard locations. | Check whether the table reads at ordinary walking distance and whether it competes with the Play vault. |
 | Lobby deployment vault, queue card | Existing animated-looking vault design, lamp, sign and live queue UI | No extra particles added: the vault is already the strongest focal point and a second large effect would compete with the locker room. Neutral UI press has a short tap sound/scale, while queue status remains authoritative. | Real queue-enter/fail/transfer playtest and phone contrast. |
 | Museum tutorial pickup and depot stock | World marker, pickup hold highlight, item-specific model visuals | Existing rarity-colored pickup burst remains keyed to a new server carry. A nearby local restock shimmer now emits only when server stock actually becomes enabled. | Real restock cycle and completed/cancelled pickup on phone. |
 | Museum return and receiving area | Tutorial arrow/sign, receiving glow and hold bar | A local DELIVER HERE marker appears within 70 studs only while carrying. On a committed delivery packet, the receiving area emits a short teal/amber motif burst; a rejected packet emits none. This is result feedback, not an always-on beacon. | Real public displayed/stored delivery and failed-save test. The hold percentage is still local input progress; a fully server-timed ring needs a begin/cancel contract. |
+| Voluntary G/touch carry drop | Carry model disappeared with a text result | A small local dust-release puff now follows the server's validated drop result and carry ID. Delivery and capture use different paths, so they cannot trigger this cue. | Real G/touch drop test with normal/heavy/tutorial/public carries. A distinct drop SFX needs a suitable supplied clip. |
 | Museum exhibits and first income | Twelve item-specific `SignatureVfxRecipes` (toast, bubbles, crown, disco tiles, coins, jellies, snacks, rocks, UFO, fossil, storm, diamond); stand glow and first-dollar HUD pulse | Existing identity is stronger than a blanket emitter on every stand. No new ambient particles added to all exhibits. | Inspect each recipe at device quality and with several displays together. First-dollar payoff needs a fresh account test. |
 | Museum doors, travel and extraction | Door swing, travel sparks/rings, extraction countdown/origin marker | Existing motion expresses these actions. Door collision was fixed separately. No cosmetic change to extraction logic or guard cues. | Real cancellation, capture, teleport, and both-sided door passage tests. |
 | Warden, cover and chase | Guard model, warning and chase HUD | Task 14B owns cinematic guard VFX/audio; this pass did not add it. | Review after gameplay acceptance. |
 | District buildings, routes, trees, landscape, seats, static lobby cases | Art geometry and lighting | No automatic sparkle/glow pass. Environmental atmosphere should be composed around routes and focal scenes rather than attached to every prop. | Art review by area and device performance before any additional ambient effects. |
+
+## HUD control audit
+
+Every current `GuiButton` in `PlayerGui` now receives the neutral press cue and a small tap scale. The button input cue is not a success cue. The modules below were inspected so each action has a deliberate second-stage response where one matters.
+
+| HUD module | Clickable actions | Result treatment and gap |
+| --- | --- | --- |
+| `OperationsMenu` | Open/close, Tutorial, Wardrobe, Map, Collection, Travel, replay, return to lobby | Tabs already change selected content; shared tap makes input immediate. Tutorial replay and lobby travel need actual state/transfer result checks; no speculative success effect. |
+| `CollectionHud` | Auto Equip Best, Manual, stand assignment, store, help/close | Server-committed arrangement already triggers a Collection pulse and equip cue. Failed/locked actions retain text feedback. Live save/restore and displaced-item clarity need testing. |
+| `CashHud` | Income detail | First earned dollar has its own pulse and chime; ordinary detail open gets only neutral click. Do not animate every passive dollar. |
+| `CarryHud` and `CarryInputController` | Collapse/expand, touch carry/drop/deliver | Buttons receive neutral input cue and scale. Drop lacks a distinct server result hook and supplied clip; a delivery hold has input progress plus server saving state, but no false success effect. |
+| `InteractionHud` and `TravelOfferHud` | Prompt action, collapse/expand, ride | Buttons receive neutral input cue. Teleport gets the existing warp rings/sparks on actual completion. Test failed/blocked travel before adding more feedback. |
+| `TutorialGuideController` | Guided ride, replay prompt | World objective marker and ride button remain; shared tap is input only. Physical-phone route visibility and first-90-second timing remain unverified. |
+| `GuardHud` | Hint dismiss/mute | Shared tap; guard warning/escape VFX and audio stay with Task 14B. |
+| `FriendInviteHud` | Invite | Shared tap only. Sending an invite is not a successful referral and must not get reward effects. |
+| `NotificationHud`, `CarryDestinationHud`, `MatchWaitingHud`, `RemoteHudController` | Mostly display/state, no primary reward buttons | Existing text and layout changes are the feedback. Adding a sound to every HUD refresh would clutter the mix. |
+| Lobby `Lobby.client` and shared `WardrobeUi` | Play, cancel, retry, invite, expand; wardrobe preview, buy/equip/remove/restore | Neutral click starts on press. The wardrobe result banner/flash/highlight waits for the server's unique result ID. Queue success, purchase failure and cross-place return still need live checks. |
 
 ## UI and sound timing correction
 
@@ -29,9 +47,16 @@ Wardrobe purchase/equip/remove/restore feedback is separate: only a server-confi
 ## Verification performed
 
 - Museum and lobby Rojo builds and `git diff --check` passed after the final source edits.
-- Lobby Studio Play loaded the music and new shared modules. The locker scan moved across the doors; the garment projection contained six local parts; moving route pings and a nine-part miniature museum existed on the planning table. Screenshots were inspected from the spawn side and a closer planning-table view. Approaching the wardrobe prompt increased scan opacity and light brightness. A local low-effects override hid the scan, garment, particles and planning-table projection. Explicit startup wait timeouts removed the lobby's infinite-yield warnings in a fresh Play run. The unrelated `203785492` asset-type warning remains.
-- Museum Studio Play used a synthetic committed delivery packet to exercise one result burst, then an Error packet produced no burst. A local carry-attribute override produced the receiving marker near the owner's zone. These test presentation branches only; they do not prove a real delivery.
+- Lobby Studio Play loaded the music and new shared modules. The locker scan moved across the doors; the garment projection contained eleven local parts; moving route pings and a nine-part miniature museum existed on the planning table. Screenshots were inspected from the spawn side and a closer planning-table view. Approaching the wardrobe prompt increased scan opacity and light brightness. A local low-effects override hid the scan, garment, particles and planning-table projection. Explicit startup wait timeouts removed the lobby's infinite-yield warnings in a fresh Play run. The unrelated `203785492` asset-type warning remains.
+- Museum Studio Play used a synthetic committed delivery packet to exercise one result burst, then an Error packet produced no burst. A local carry-attribute override produced the receiving marker near the owner's zone. These test presentation branches only; they do not prove a real delivery. The later voluntary-drop cue was source-built but not live-tested because the museum Studio instance closed.
 - Studio Play tested a muted/low-effects menu click: the menu still opened, its click stayed silent and no button scale appeared. A real saved settings change was not tested.
+
+## Files changed in this follow-up
+
+- Audio/UI: `src/shared/HeistAudioConfig.luau`, `ExhibitSoundConfig.luau`, `UiFeedback.luau`, `WardrobeAppearance.luau`, `WardrobeUi.luau`; `src/client/Bootstrap.client.luau`, `HeistAudioController.luau`.
+- Lobby world/VFX: `src/lobby/LobbyWorld.luau`; `src/lobbyClient/Lobby.client.luau`, `LobbySeating.client.luau`; new `src/shared/WardrobeRoomVfx.luau`, `LobbyPlanningVfx.luau`.
+- Server-confirmed wardrobe/drop results and museum VFX: `src/matchShared/WardrobeSession.luau`, `src/server/Services/WardrobeService.luau`, `CarryService.luau`; `src/client/DeliveryFeedbackController.luau`, `PickupFeedbackController.luau`; new `src/client/CarryDropVfx.luau`.
+- Documentation: `development_plan.md`, `docs/task14f-full-cue-inventory.md`, this review and `docs/task14f-polish.md`.
 
 ## Honest quality assessment
 

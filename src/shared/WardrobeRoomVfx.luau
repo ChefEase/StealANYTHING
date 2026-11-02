@@ -54,7 +54,9 @@ function WardrobeRoomVfx.Start(player: Player)
         garment.Name = "LocalWardrobeGarmentProjection"
         garment.Parent = beacon
         local garmentParts: {BasePart} = {}
-        local function fabric(name: string, size: Vector3, offset: CFrame)
+        local trimParts: {BasePart} = {}
+        local function fabric(name: string, size: Vector3, offset: CFrame,
+            trim: boolean?)
             local piece = Instance.new("Part")
             piece.Name = name
             piece.Size = size
@@ -64,11 +66,12 @@ function WardrobeRoomVfx.Start(player: Player)
             piece.CanQuery = false
             piece.CastShadow = false
             piece.Material = Enum.Material.Neon
-            piece.Color = CYAN
-            piece.Transparency = 0.44
-            piece.CFrame = CFrame.new(24, 13, 22.7) * offset
+            piece.Color = if trim then PALE else CYAN
+            piece.Transparency = if trim then 0.18 else 0.44
+            piece.CFrame = CFrame.new(24, 7.2, 22.7) * offset
             piece.Parent = garment
             table.insert(garmentParts, piece)
+            if trim then table.insert(trimParts, piece) end
             return piece
         end
         garment.PrimaryPart = fabric("JacketBody", Vector3.new(2.9, 3.4, 0.1), CFrame.new())
@@ -81,6 +84,15 @@ function WardrobeRoomVfx.Start(player: Player)
             CFrame.new(-0.5, 1.46, 0) * CFrame.Angles(0, 0, math.rad(35)))
         fabric("RightCollar", Vector3.new(0.25, 1.1, 0.12),
             CFrame.new(0.5, 1.46, 0) * CFrame.Angles(0, 0, math.rad(-35)))
+        fabric("JacketZipper", Vector3.new(0.075, 2.7, 0.035),
+            CFrame.new(0, -0.15, -0.075), true)
+        for _, side in { -1, 1 } do
+            fabric("PocketSeam", Vector3.new(0.75, 0.065, 0.04),
+                CFrame.new(side * 0.82, -0.78, -0.08), true)
+            fabric("ShoulderStripe", Vector3.new(0.9, 0.055, 0.04),
+                CFrame.new(side * 1.2, 1.22, -0.08)
+                    * CFrame.Angles(0, 0, math.rad(side * 18)), true)
+        end
         local top = Instance.new("Attachment")
         top.Position = Vector3.new(0, scan.Size.Y / 2, 0)
         top.Parent = scan
@@ -160,6 +172,9 @@ function WardrobeRoomVfx.Start(player: Player)
                 piece.Transparency = if still then 1
                     else 0.26 + (math.sin(os.clock() * 1.35) + 1) * 0.11
             end
+            if not still then
+                for _, piece in trimParts do piece.Transparency = 0.08 end
+            end
             if light and light:IsA("PointLight") then
                 light.Brightness = if still then 0.8
                     elseif os.clock() < excitedUntil then 2 else 1.15
@@ -170,7 +185,7 @@ function WardrobeRoomVfx.Start(player: Player)
             local x = 15.9 + along * 16.2
             scan.CFrame = CFrame.new(x, 4.8, 23.12)
             projection.CFrame = CFrame.new(x, 0.055, 21.2)
-            garment:PivotTo(CFrame.new(24, 13 + math.sin(os.clock() * 1.1) * 0.22, 22.7)
+            garment:PivotTo(CFrame.new(24, 7.2 + math.sin(os.clock() * 1.1) * 0.22, 22.7)
                 * CFrame.Angles(0, math.sin(os.clock() * 0.5) * 0.22, 0))
         end)
     end)
