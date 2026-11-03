@@ -5,7 +5,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Effects = require(script.Parent.PreviewEffects)
 local ReceivingPrototype = require(script.Parent.ReceivingPrototype)
+local PickupPrototype = require(script.Parent.PickupPrototype)
+local ExtractionPrototype = require(script.Parent.ExtractionPrototype)
 local Catalog = require(ReplicatedStorage.Shared.ItemCatalog)
+local Balance = require(ReplicatedStorage.Shared.BalanceConfig)
 local player = Players.LocalPlayer
 
 local TEAL = Color3.fromRGB(74, 235, 194)
@@ -13,17 +16,19 @@ local GOLD = Color3.fromRGB(255, 207, 115)
 local INK = Color3.fromRGB(17, 30, 34)
 local TEXT = Color3.fromRGB(237, 246, 242)
 
-local kinds = { "Pickup", "Receiving", "Extraction", "Restock", "Exhibit" }
+local kinds = { "Pickup", "Receiving", "Extraction", "Restock", "Exhibit", "Gallery" }
 local views = { { "NEAR", 12 }, { "MEDIUM", 30 }, { "GAMEPLAY", 60 } }
 local modes = { "Normal", "Low effects", "Reduced motion" }
 local selected = 1
 local viewIndex = 2
 local modeIndex = 1
 local itemIndex = 1
+local pickupTierIndex = 1
 local serial = 0
 local activeRoot = nil
 local cancelTweens = nil
 local receivingController = nil
+local extractionController = nil
 
 local arena = Instance.new("Folder")
 arena.Name = "LocalVfxPreviewArena"
@@ -50,13 +55,17 @@ for index, kind in kinds do
     local model = Instance.new("Model")
     model.Name = "Sample" .. kind
     model.Parent = arena
-    local x = (index - 3) * 20
-    makePart("Station", Vector3.new(11, .3, 11), CFrame.new(x, .15, 0),
+    local x = if kind == "Gallery" then 0 else (index - 3) * 20
+    local z = if kind == "Gallery" then -42 else 0
+    makePart("Station", if kind == "Gallery" then Vector3.new(44, .3, 32)
+        else Vector3.new(11, .3, 11), CFrame.new(x, .15, z),
         Color3.fromRGB(39, 54, 57), Enum.Material.Metal, model)
     local stand = makePart("SampleTarget", Vector3.new(3.5, 2.3, 3.5),
-        CFrame.new(x, 1.45, 0), if kind == "Receiving" or kind == "Extraction"
+        CFrame.new(x, 1.45, z), if kind == "Receiving" or kind == "Extraction"
             then TEAL else GOLD, Enum.Material.SmoothPlastic, model)
-    if kind == "Receiving" then
+    if kind == "Pickup" then
+        stand.Color = Color3.fromRGB(85, 101, 107)
+    elseif kind == "Receiving" then
         stand.Size = Vector3.new(8, .25, 6)
         stand.CFrame = CFrame.new(x, .46, 0)
         stand.Transparency = 1
@@ -64,9 +73,13 @@ for index, kind in kinds do
         stand.Shape = Enum.PartType.Cylinder
         stand.Size = Vector3.new(.3, 8, 8)
         stand.CFrame = CFrame.new(x, .48, 0) * CFrame.Angles(0, 0, math.rad(90))
+        stand.Transparency = 1
     elseif kind == "Exhibit" then
         stand.Size = Vector3.new(5, 1.4, 5)
         stand.CFrame = CFrame.new(x, .85, 0)
+    elseif kind == "Gallery" then
+        stand.Transparency = 1
+        stand.Size = Vector3.new(.2, .2, .2)
     end
     local sign = Instance.new("BillboardGui")
     sign.Name = "StationLabel"
@@ -178,6 +191,22 @@ for index, stage in stageNames do
     stageButtons[index] = button("Mock" .. stage, string.upper(stage),
         12 + column * 98, 315 + row * 35, 90, 30)
 end
+local tierNames = { "Common", "Uncommon", "Rare", "Legendary" }
+local tierButtons = {}
+for index, tier in tierNames do
+    local column = (index - 1) % 2
+    local row = math.floor((index - 1) / 2)
+    tierButtons[index] = button("Pickup" .. tier, string.upper(tier),
+        12 + column * 145, 315 + row * 35, 136, 30)
+end
+local extractionStates = { "Idle", "Activation", "Charging", "Completion", "Cancellation" }
+local extractionButtons = {}
+for index, state in extractionStates do
+    local column = (index - 1) % 2
+    local row = math.floor((index - 1) / 2)
+    extractionButtons[index] = button("Extraction" .. state, string.upper(state),
+        12 + column * 145, 315 + row * 25, 136, 22)
+end
 local status = label("Status", "Ready. Select a station, then Play.", 391, 44, 11, GOLD)
 
 local function focusCamera()
@@ -195,6 +224,7 @@ local function clear()
     serial += 1
     if cancelTweens then cancelTweens(); cancelTweens = nil end
     if receivingController then receivingController:Destroy(); receivingController = nil end
+    if extractionController then extractionController:Destroy(); extractionController = nil end
     if activeRoot then activeRoot:Destroy(); activeRoot = nil end
     status.Text = "Reset. No preview effects active."
 end
@@ -209,6 +239,16 @@ local function startReceiving()
     status.Text = "Receiving platform idle. Play a flow or select a mock state."
 end
 
+local function startExtraction()
+    local root = Instance.new("Folder")
+    root.Name = "ActiveExtractionPrototype"
+    root.Parent = arena
+    activeRoot = root
+    extractionController = ExtractionPrototype.Create(root,
+        targets[selected], modes[modeIndex])
+    status.Text = "Machine idle. Play a flow or select a mock state."
+end
+
 local function refresh()
     for index, b in kindButtons do
         b.BackgroundColor3 = if index == selected then TEAL
@@ -221,6 +261,13 @@ local function refresh()
     itemButton.Text = "ITEM: " .. string.upper(item.name)
     itemButton.Visible = kinds[selected] == "Exhibit"
     for _, b in stageButtons do b.Visible = kinds[selected] == "Receiving" end
+    for _, b in extractionButtons do b.Visible = kinds[selected] == "Extraction" end
+    for index, b in tierButtons do
+        b.Visible = kinds[selected] == "Pickup"
+        b.BackgroundColor3 = if index == pickupTierIndex then TEAL
+            else Color3.fromRGB(37, 61, 62)
+        b.TextColor3 = if index == pickupTierIndex then INK else TEXT
+    end
     focusCamera()
 end
 
@@ -247,19 +294,43 @@ local function run()
         end)
         return
     end
+    if kind == "Extraction" then
+        startExtraction()
+        local controller = extractionController
+        controller:SetState("Activation")
+        status.Text = "Mock activation: mechanical pulse."
+        task.spawn(function()
+            task.wait(.35)
+            if serial ~= mySerial then return end
+            controller:SetState("Charging")
+            status.Text = "Mock extraction charging. Cancel before completion."
+            task.wait(math.max(.1, Balance.PUBLIC_EXTRACTION_SECONDS - .35))
+            if serial ~= mySerial then return end
+            controller:SetState("Completion")
+            status.Text = "Mock validated completion only. No teleport."
+        end)
+        return
+    end
     local root = Instance.new("Folder")
     root.Name = "ActivePreviewEffect"
     root.Parent = arena
     activeRoot = root
     local itemId = Catalog.OrderedIds[itemIndex]
-    cancelTweens = Effects.Play(kind, targets[selected], root,
-        modes[modeIndex], itemId, function()
-            return serial == mySerial and root.Parent ~= nil
-        end)
+    local live = function() return serial == mySerial and root.Parent ~= nil end
+    if kind == "Pickup" then
+        cancelTweens = PickupPrototype.Play(root, targets[selected],
+            tierNames[pickupTierIndex], modes[modeIndex], live)
+    else
+        cancelTweens = Effects.Play(kind, targets[selected], root,
+            modes[modeIndex], itemId, live)
+    end
     status.Text = if kind == "Exhibit" then "Live exhibit recipe: " .. itemId
+        elseif kind == "Gallery" then "All 12 recipe geometries together; proxy items, no audio."
+        elseif kind == "Pickup" then "Mock confirmed " .. tierNames[pickupTierIndex]
+            .. " pickup. Reset during hold to cancel."
         else "Local mock event: " .. kind .. ". No rewards or travel."
-    if kind ~= "Exhibit" then
-        task.delay(6, function()
+    if kind ~= "Exhibit" and kind ~= "Gallery" then
+        task.delay(if kind == "Pickup" then 1.7 else 6, function()
             if serial == mySerial then clear(); status.Text = "Preview finished. Replay or choose another." end
         end)
     end
@@ -271,6 +342,7 @@ for index, b in kindButtons do
         selected = index
         refresh()
         if kinds[selected] == "Receiving" then startReceiving() end
+        if kinds[selected] == "Extraction" then startExtraction() end
     end)
 end
 play.Activated:Connect(run)
@@ -278,6 +350,7 @@ replay.Activated:Connect(run)
 reset.Activated:Connect(function()
     clear()
     if kinds[selected] == "Receiving" then startReceiving() end
+    if kinds[selected] == "Extraction" then startExtraction() end
 end)
 viewButton.Activated:Connect(function()
     viewIndex = viewIndex % #views + 1
@@ -288,6 +361,7 @@ modeButton.Activated:Connect(function()
     modeIndex = modeIndex % #modes + 1
     refresh()
     if kinds[selected] == "Receiving" then startReceiving() end
+    if kinds[selected] == "Extraction" then startExtraction() end
 end)
 itemButton.Activated:Connect(function()
     clear()
@@ -305,6 +379,27 @@ for index, b in stageButtons do
             elseif stage == "Cancel" or stage == "Failure" then
                 "No reward burst. Returning to idle."
             else "Mock state: " .. stage
+    end)
+end
+for index, b in tierButtons do
+    b.Activated:Connect(function()
+        if kinds[selected] ~= "Pickup" then return end
+        clear()
+        pickupTierIndex = index
+        refresh()
+        status.Text = "Selected " .. tierNames[index] .. ". Play to compare motion."
+    end)
+end
+for index, b in extractionButtons do
+    b.Activated:Connect(function()
+        if kinds[selected] ~= "Extraction" then return end
+        serial += 1 -- cancel the scheduled mock completion
+        if not extractionController then startExtraction() end
+        local state = extractionStates[index]
+        extractionController:SetState(state)
+        status.Text = if state == "Completion" then "Mock validated completion only."
+            elseif state == "Cancellation" then "Power-down; no completion visual."
+            else "Mock extraction state: " .. state
     end)
 end
 toggle.Activated:Connect(function()

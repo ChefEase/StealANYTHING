@@ -8,12 +8,35 @@ local Config = require(script.Parent.HeistAudioConfig)
 
 local UiFeedback = {}
 local started: {[Player]: boolean} = {}
+local MENU_NAVIGATION = table.freeze({
+    OperationsMenuToggle = true,
+    Close = true,
+    TutorialTab = true,
+    WardrobeTab = true,
+    MapTab = true,
+    CollectionTab = true,
+    TravelTab = true,
+})
 
 local function effectsGain(player: Player): number
     local master = player:GetAttribute("MasterVolume")
     local effects = player:GetAttribute("EffectsVolume")
     return math.clamp(if type(master) == "number" then master else 1, 0, 1)
         * math.clamp(if type(effects) == "number" then effects else 1, 0, 1)
+end
+
+local function isMenuButton(instance: GuiButton): boolean
+    local screen = instance:FindFirstAncestorOfClass("ScreenGui")
+    if not screen then return false end
+    if screen.Name == "RobberWardrobeGui" then
+        return instance.Name == "WardrobeButton" or instance.Name == "Close"
+    end
+    if screen.Name == "MatchmakingLobby" then return instance.Name == "Expand" end
+    if screen.Name ~= "GameHud" then return false end
+    if MENU_NAVIGATION[instance.Name] ~= true then return false end
+    if instance.Name == "OperationsMenuToggle" then return true end
+    local overlay = screen:FindFirstChild("OperationsOverlay")
+    return overlay ~= nil and instance:IsDescendantOf(overlay)
 end
 
 function UiFeedback.Start(player: Player)
@@ -31,7 +54,8 @@ function UiFeedback.Start(player: Player)
     local lastClick = -math.huge
     local bound: {[GuiButton]: boolean} = {}
     local function bind(instance: Instance)
-        if not instance:IsA("GuiButton") or bound[instance] then return end
+        if not instance:IsA("GuiButton") or bound[instance]
+            or not isMenuButton(instance) then return end
         bound[instance] = true
         local pressedAt = -math.huge
         local function respond()

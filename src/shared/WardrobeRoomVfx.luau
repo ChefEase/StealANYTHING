@@ -47,7 +47,7 @@ function WardrobeRoomVfx.Start(player: Player)
         projection.Transparency = 0.84
         projection.Parent = beacon
 
-        -- A floating jacket silhouette is the focal projection for the room.
+        -- A floating coat silhouette is the focal projection for the room.
         -- It is clothing alone, suspended above the locker bank, not another
         -- mannequin or a gameplay pickup.
         local garment = Instance.new("Model")
@@ -56,8 +56,11 @@ function WardrobeRoomVfx.Start(player: Player)
         local garmentParts: {BasePart} = {}
         local trimParts: {BasePart} = {}
         local function fabric(name: string, size: Vector3, offset: CFrame,
-            trim: boolean?)
-            local piece = Instance.new("Part")
+            trim: boolean?, shape: string?)
+            local piece = Instance.new(if shape == "Wedge" then "WedgePart" else "Part")
+            if shape == "Cylinder" and piece:IsA("Part") then
+                piece.Shape = Enum.PartType.Cylinder
+            end
             piece.Name = name
             piece.Size = size
             piece.Anchored = true
@@ -74,23 +77,29 @@ function WardrobeRoomVfx.Start(player: Player)
             if trim then table.insert(trimParts, piece) end
             return piece
         end
-        garment.PrimaryPart = fabric("JacketBody", Vector3.new(2.9, 3.4, 0.1), CFrame.new())
-        fabric("LeftSleeve", Vector3.new(0.9, 2.6, 0.1),
-            CFrame.new(-1.75, 0.25, 0) * CFrame.Angles(0, 0, math.rad(-23)))
-        fabric("RightSleeve", Vector3.new(0.9, 2.6, 0.1),
-            CFrame.new(1.75, 0.25, 0) * CFrame.Angles(0, 0, math.rad(23)))
-        fabric("JacketHem", Vector3.new(3.1, 0.22, 0.12), CFrame.new(0, -1.7, 0))
-        fabric("LeftCollar", Vector3.new(0.25, 1.1, 0.12),
-            CFrame.new(-0.5, 1.46, 0) * CFrame.Angles(0, 0, math.rad(35)))
-        fabric("RightCollar", Vector3.new(0.25, 1.1, 0.12),
-            CFrame.new(0.5, 1.46, 0) * CFrame.Angles(0, 0, math.rad(-35)))
+        garment.PrimaryPart = fabric("CoatChest", Vector3.new(2.9, 1.8, 0.62), CFrame.new(0, .76, 0))
+        fabric("CoatWaist", Vector3.new(2.48, 1.6, .56), CFrame.new(0, -.9, 0))
+        fabric("LeftShoulderSlope", Vector3.new(.78, .48, .62),
+            CFrame.new(-1.36, 1.43, 0) * CFrame.Angles(0, 0, math.rad(-20)), false, "Wedge")
+        fabric("RightShoulderSlope", Vector3.new(.78, .48, .62),
+            CFrame.new(1.36, 1.43, 0) * CFrame.Angles(0, math.pi, math.rad(20)), false, "Wedge")
+        fabric("LeftSleeve", Vector3.new(2.45, .67, .67),
+            CFrame.new(-1.75, .17, 0) * CFrame.Angles(0, 0, math.rad(65)), false, "Cylinder")
+        fabric("RightSleeve", Vector3.new(2.45, .67, .67),
+            CFrame.new(1.75, .17, 0) * CFrame.Angles(0, 0, math.rad(-65)), false, "Cylinder")
+        fabric("JacketHem", Vector3.new(2.75, .22, .65), CFrame.new(0, -1.7, 0))
+        fabric("LeftLapel", Vector3.new(.5, 1.26, .16),
+            CFrame.new(-.47, 1.04, -.38) * CFrame.Angles(0, 0, math.rad(22)), true, "Wedge")
+        fabric("RightLapel", Vector3.new(.5, 1.26, .16),
+            CFrame.new(.47, 1.04, -.38) * CFrame.Angles(0, math.pi, math.rad(-22)), true, "Wedge")
+        fabric("CollarBack", Vector3.new(1.25, .3, .4), CFrame.new(0, 1.76, .14), true)
         fabric("JacketZipper", Vector3.new(0.075, 2.7, 0.035),
-            CFrame.new(0, -0.15, -0.075), true)
+            CFrame.new(0, -0.15, -0.39), true)
         for _, side in { -1, 1 } do
             fabric("PocketSeam", Vector3.new(0.75, 0.065, 0.04),
-                CFrame.new(side * 0.82, -0.78, -0.08), true)
+                CFrame.new(side * 0.76, -0.78, -0.34), true)
             fabric("ShoulderStripe", Vector3.new(0.9, 0.055, 0.04),
-                CFrame.new(side * 1.2, 1.22, -0.08)
+                CFrame.new(side * 1.2, 1.22, -0.35)
                     * CFrame.Angles(0, 0, math.rad(side * 18)), true)
         end
         local top = Instance.new("Attachment")
@@ -169,7 +178,7 @@ function WardrobeRoomVfx.Start(player: Player)
             afterimage.Enabled = not still
             for _, emitter in emitters do emitter.Enabled = not still end
             for _, piece in garmentParts do
-                piece.Transparency = if still then 1
+                piece.Transparency = if still then 0.56
                     else 0.26 + (math.sin(os.clock() * 1.35) + 1) * 0.11
             end
             if not still then

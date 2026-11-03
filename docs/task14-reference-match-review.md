@@ -1,0 +1,17 @@
+# Task 14 VFX reference comparison — 2 November 2026
+
+The ten files in `C:\Users\User\Downloads\VFX References` were reviewed as conceptual examples. Their textures and artwork were not imported. This pass focused on the three core heist events; the unrelated red weapon/explosion examples were deliberately not copied.
+
+| Reference | Implemented relationship | Difference retained for gameplay |
+| --- | --- | --- |
+| `MiAV5BW1...jpg` receiving room | Dark circular plinth, concentric cyan deck rings, suspended receiver rim and central processing beam. During an active delivery, small packets move inward. Confirmed success turns briefly gold. | The museum is a bright playable room, not a cinematic chamber. No ceiling reconstruction, fog or constant bright column. Beam and overhead ring stay subdued outside processing. |
+| `images.jpg` extraction portals | Ground machine ring, elevated segmented ring, three thin curved energy filaments during charge, short convergence and flash on server completion. Cancellation powers down in amber without completion flash. | The ring is scaled to the existing shuttle pad. No large full-body portal tube or persistent smoke that could hide the player or guard. |
+| `R5jBEs.jpg` pickup tier streaks | Rarity colors, higher-tier directional streaks, brief four-point center accent, and a segmented legendary ring. Common stays a small impact. | The streaks are short-lived and item visibility is preserved; no long beam or continuous loot aura. |
+
+Studio Edit inspection confirmed the receiving trigger is 10×4×10 at `(65, 3, 52)` in the authored museum. Its lower face is Y=1, while the nearby floor top is approximately Y=1.03. The platform base now sits at approximately that floor height. The shared receiving and extraction modules were temporarily synced into the open museum Studio Edit place and used on disposable local sample folders. Screenshots were inspected from about 10–18 studs; the samples and running controllers were removed afterward. The raised receiver ring and extraction crown were visible separately above their decks. This verifies shape and placement in Edit, not actual carry/delivery/extraction state transitions in Play.
+
+A short repeated legendary-pickup sample was also inspected from about eight studs. Its four-point accent and directional streaks were visible above a neutral item proxy; the effect remained brief and did not hide the proxy. The sample was removed. Other tiers and actual server-confirmed pickups were not visually tested in this pass.
+
+A brief Studio Play startup check ran twice. The first run exposed an asset-type warning from preloading the extraction hum as a bare content string. Preloading it through a `Sound` object removed that warning on the second run; the clip loaded in a Client test at 4.68 seconds. The unrelated, previously documented `203785492` asset-type warning remains. No real heist or multiplayer effect transition was exercised by this check.
+
+Remaining visual acceptance: compare normal gameplay camera distance and a phone viewport in Studio Play; check actual depot shuttle-pad clearance, six-player load, reduced-motion/low-effects modes, capture cancellation, and confirmed delivery/extraction success. The current shapes follow the references' silhouette and timing concepts, but exact artistic similarity and feel in motion require owner review. No lobby garment reference was supplied, so the locker cannot be claimed to match this image set.

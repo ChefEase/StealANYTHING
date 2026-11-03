@@ -5,16 +5,11 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ItemCatalog = require(ReplicatedStorage.Shared.ItemCatalog)
+local PickupRarityVfx = require(ReplicatedStorage.Shared.PickupRarityVfx)
+local AudioConfig = require(ReplicatedStorage.Shared.HeistAudioConfig)
 local Theme = require(script.Parent.HudTheme)
 
 local PickupFeedbackController = {}
-
-local TIER_COLORS = {
-    Common = Theme.Accent,
-    Uncommon = Color3.fromRGB(255, 207, 115),
-    Rare = Color3.fromRGB(183, 153, 255),
-    Legendary = Color3.fromRGB(255, 132, 198),
-}
 
 local function stockDisplay(prompt: ProximityPrompt): Model?
     local targetId = prompt:GetAttribute("PickupTargetId")
@@ -38,6 +33,7 @@ local function stockDisplay(prompt: ProximityPrompt): Model?
 end
 
 function PickupFeedbackController.Start(player: Player)
+    local lastRestockSound = -math.huge
     local activePrompt: ProximityPrompt? = nil
     local holdHighlight: Highlight? = nil
     local lastCueCarryId = player:GetAttribute("CarryId")
@@ -86,29 +82,20 @@ function PickupFeedbackController.Start(player: Player)
         local now = os.clock()
         if now - lastCueAt < 0.5 then return end
         lastCueAt = now
-        if player:GetAttribute("ReduceMotion") == true then return end
         local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if root == nil or not root:IsA("BasePart") then return end
-        local attachment = Instance.new("Attachment")
-        attachment.Name = "LocalPickupBurst"
-        attachment.Position = Vector3.new(0, 1.4, 0)
-        attachment.Parent = root
-        local particles = Instance.new("ParticleEmitter")
-        particles.Name = "PickupConfirmation"
-        particles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-        particles.Color = ColorSequence.new(TIER_COLORS[item.tier] or Theme.Accent)
-        particles.LightEmission = 0.6
-        particles.Lifetime = NumberRange.new(0.25, 0.5)
-        particles.Speed = NumberRange.new(2, 5)
-        particles.SpreadAngle = Vector2.new(180, 180)
-        particles.Size = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.28),
-            NumberSequenceKeypoint.new(1, 0),
-        })
-        particles.Rate = 0
-        particles.Parent = attachment
-        particles:Emit(if player:GetAttribute("LowEffects") == true then 2 else 7)
-        Debris:AddItem(attachment, 1)
+        local effectRoot = Instance.new("Folder")
+        effectRoot.Name = "LocalConfirmedPickupRarity"
+        effectRoot.Parent = workspace
+        local mode = if player:GetAttribute("ReduceMotion") == true then "Reduced motion"
+            elseif player:GetAttribute("LowEffects") == true then "Low effects"
+            else "Normal"
+        local cancel = PickupRarityVfx.Play(effectRoot, root, item.tier,
+            mode, function() return effectRoot.Parent ~= nil and root.Parent ~= nil end, true)
+        task.delay(1, function()
+            cancel()
+            effectRoot:Destroy()
+        end)
     end
 
     player:GetAttributeChangedSignal("CarryId"):Connect(confirmPickup)
@@ -135,6 +122,22 @@ function PickupFeedbackController.Start(player: Player)
                 task.delay(0.15, function()
                     local display = stockDisplay(prompt)
                     if display == nil or not prompt.Enabled then return end
+                    local spec = AudioConfig.Effects.Restock
+                    if spec.SoundId ~= "" and os.clock() - lastRestockSound >= spec.MinInterval then
+                        lastRestockSound = os.clock()
+                        local master = player:GetAttribute("MasterVolume")
+                        local effects = player:GetAttribute("EffectsVolume")
+                        local sound = Instance.new("Sound")
+                        sound.Name = "LocalRestockCue"
+                        sound.SoundId = spec.SoundId
+                        sound.Volume = spec.Volume
+                            * (if type(master) == "number" then math.clamp(master, 0, 1) else 1)
+                            * (if type(effects) == "number" then math.clamp(effects, 0, 1) else 1)
+                        sound.RollOffMaxDistance = 55
+                        sound.Parent = anchor
+                        sound:Play()
+                        Debris:AddItem(sound, 3)
+                    end
                     local glow = Instance.new("Highlight")
                     glow.Name = "LocalRestockGlow"
                     glow.Adornee = display

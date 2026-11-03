@@ -142,6 +142,10 @@ function TravelEffects.Teleport(player: Player, destination: CFrame,
             label.Parent = billboard
             billboard.Parent = root
             marker = billboard
+            player:SetAttribute("ExtractionOutcome", nil)
+            -- Client VFX must use the validated machine, not the moving avatar.
+            player:SetAttribute("ExtractionPadWorldPosition", (anchor :: BasePart).Position
+                + Vector3.new(0, (anchor :: BasePart).Size.Y / 2 - .07, 0))
             player:SetAttribute("ExtractionEndsAt", workspace:GetServerTimeNow()+duration)
             player:SetAttribute("ExtractionDuration", duration)
             player:SetAttribute("ExtractionActive", true)
@@ -169,10 +173,11 @@ function TravelEffects.Teleport(player: Player, destination: CFrame,
     if marker then marker:Destroy() end
     active[player] = nil
     if extraction then
+        player:SetAttribute("ExtractionOutcome", if ok and result then "Completed" else "Cancelled")
         player:SetAttribute("ExtractionActive", nil)
         player:SetAttribute("ExtractionEndsAt", nil)
         player:SetAttribute("ExtractionDuration", nil)
-        player:SetAttribute("ExtractionOutcome", if ok and result then "Completed" else "Cancelled")
+        player:SetAttribute("ExtractionPadWorldPosition", nil)
     end
     if not ok then warn("[Travel] Activation failed: " .. tostring(result)) end
     return ok and result == true

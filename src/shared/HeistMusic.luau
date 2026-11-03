@@ -48,10 +48,14 @@ function HeistMusic.Start(player: Player, place: string, screen: ScreenGui?)
         local desired = if place == "Lobby" then "Lobby"
             elseif type(player:GetAttribute("CarryId")) == "string" then "Carry"
             else "Museum"
-        local warned = player:GetAttribute("GuardChased") == true
-            or player:GetAttribute("ExtractionActive") == true
-            or (screen ~= nil and screen:GetAttribute("GuardWarningVisible") == true)
-        local duck = if warned then 0.25 elseif os.clock() < duckUntil then 0.45 else 1
+        local chase = player:GetAttribute("GuardState") == "Chase"
+            or player:GetAttribute("GuardState") == "Capture"
+        local extraction = player:GetAttribute("ExtractionActive") == true
+        local warning = screen ~= nil and screen:GetAttribute("GuardWarningVisible") == true
+        local duck = if extraction then Config.Mix.ExtractionMusicGain
+            elseif chase then Config.Mix.ChaseMusicGain
+            elseif warning then Config.Mix.WarningMusicGain
+            elseif os.clock() < duckUntil then Config.Mix.ActionMusicGain else 1
         local multiplier = gain(player)
         for name, sound in sounds do
             local spec = Config.Music[name]

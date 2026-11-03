@@ -1,11 +1,10 @@
 -- Preview-only visual stand-ins for the live result controllers. Never require
 -- this module from the museum or lobby project.
-local TweenService = game:GetService("TweenService")
 local SignatureVfx = require(game:GetService("ReplicatedStorage").Shared.SignatureVfx)
+local Catalog = require(game:GetService("ReplicatedStorage").Shared.ItemCatalog)
 
 local Effects = {}
 local TEAL = Color3.fromRGB(74, 235, 194)
-local GOLD = Color3.fromRGB(255, 207, 115)
 local AMBER = Color3.fromRGB(255, 176, 88)
 
 local function part(parent, name, size, cf, color, transparency)
@@ -58,21 +57,9 @@ local function highlight(root, target, color, low)
     return h
 end
 
-local function ring(root, position, color, duration)
-    local p = part(root, "PreviewWarpRing", Vector3.new(.12, 4, 4),
-        CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90)), color, .25)
-    p.Shape = Enum.PartType.Cylinder
-    local tween = TweenService:Create(p,
-        TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        { Size = Vector3.new(.12, 18, 18), Transparency = 1 })
-    tween:Play()
-    return tween
-end
-
 function Effects.Play(kind, target, root, mode, itemId, live)
     local low = mode == "Low effects"
     local reduced = mode == "Reduced motion"
-    local tweens = {}
     local function waitFor(seconds)
         local endAt = os.clock() + seconds
         repeat
@@ -81,45 +68,9 @@ function Effects.Play(kind, target, root, mode, itemId, live)
         until os.clock() >= endAt
         return live()
     end
-    local function track(tween)
-        table.insert(tweens, tween)
-    end
     local function play()
         if not live() then return end
-        if kind == "Pickup" then
-            local glow = highlight(root, target, TEAL, low)
-            if not waitFor(.7) then return end
-            glow:Destroy()
-            if not reduced then
-                burst(root, target.Position + Vector3.new(0, 1.7, 0),
-                    GOLD, if low then 2 else 7, 5, .5)
-            end
-        elseif kind == "Extraction" then
-            local sign = Instance.new("BillboardGui")
-            sign.Name = "PreviewExtractionMarker"
-            sign.Adornee = target
-            sign.Size = UDim2.fromOffset(160, 32)
-            sign.StudsOffsetWorldSpace = Vector3.new(0, 4, 0)
-            sign.MaxDistance = 80
-            sign.AlwaysOnTop = false
-            sign.Parent = root
-            local label = Instance.new("TextLabel")
-            label.Size = UDim2.fromScale(1, 1)
-            label.BackgroundColor3 = Color3.fromRGB(37, 28, 23)
-            label.TextColor3 = GOLD
-            label.Font = Enum.Font.GothamBold
-            label.TextSize = 14
-            label.Text = "EXTRACTING STOCK"
-            label.Parent = sign
-            if not waitFor(3.5) then return end
-            sign:Destroy()
-            if not reduced then
-                local center = target.Position + Vector3.new(0, 1, 0)
-                track(ring(root, center, TEAL, .65))
-                if not low then track(ring(root, center + Vector3.new(0, 1.2, 0), GOLD, .65)) end
-                burst(root, center, TEAL, if low then 3 else 12, 12, .65)
-            end
-        elseif kind == "Restock" then
+        if kind == "Restock" then
             local glow = highlight(root, target, AMBER, low)
             if not reduced then
                 burst(root, target.Position + Vector3.new(0, 1.3, 0),
@@ -127,11 +78,46 @@ function Effects.Play(kind, target, root, mode, itemId, live)
             end
             if not waitFor(.85) then return end
             glow:Destroy()
-        elseif kind == "Exhibit" then
-            local artifact = part(root, "PreviewExhibit", Vector3.new(2, 2, 2),
-                CFrame.new(target.Position + Vector3.new(0, 2.2, 0)), TEAL, .2)
-            SignatureVfx.Attach(artifact, root, itemId,
-                CFrame.identity, Vector3.new(2, 2, 2))
+        elseif kind == "Exhibit" or kind == "Gallery" then
+            if kind == "Gallery" then
+                for index, galleryItemId in Catalog.OrderedIds do
+                    local column = (index - 1) % 4
+                    local row = math.floor((index - 1) / 4)
+                    local position = target.Position + Vector3.new(
+                        (column - 1.5) * 8, 0, (row - 1) * 8)
+                    local pedestal = part(root, "GalleryStand" .. index,
+                        Vector3.new(4, .6, 4), CFrame.new(position),
+                        Color3.fromRGB(44, 61, 65), 0)
+                    pedestal.Material = Enum.Material.Metal
+                    local proxy = part(root, "GalleryProxy" .. galleryItemId,
+                        Vector3.new(1.8, 1.8, 1.8),
+                        CFrame.new(position + Vector3.new(0, 1.45, 0)),
+                        Color3.fromRGB(97, 108, 110), 0)
+                    proxy.Material = Enum.Material.SmoothPlastic
+                    SignatureVfx.Attach(proxy, root, galleryItemId,
+                        CFrame.identity, Vector3.new(2, 2, 2))
+                    local sign = Instance.new("BillboardGui")
+                    sign.Name = "GalleryItemLabel"
+                    sign.Adornee = pedestal
+                    sign.Size = UDim2.fromOffset(110, 22)
+                    sign.StudsOffsetWorldSpace = Vector3.new(0, 3.8, 0)
+                    sign.MaxDistance = 25
+                    sign.Parent = root
+                    local text = Instance.new("TextLabel")
+                    text.Size = UDim2.fromScale(1, 1)
+                    text.BackgroundColor3 = Color3.fromRGB(17, 30, 34)
+                    text.TextColor3 = Color3.fromRGB(237, 246, 242)
+                    text.TextSize = 10
+                    text.Font = Enum.Font.GothamBold
+                    text.Text = string.upper(galleryItemId)
+                    text.Parent = sign
+                end
+            else
+                local artifact = part(root, "PreviewExhibit", Vector3.new(2, 2, 2),
+                    CFrame.new(target.Position + Vector3.new(0, 2.2, 0)), TEAL, .2)
+                SignatureVfx.Attach(artifact, root, itemId,
+                    CFrame.identity, Vector3.new(2, 2, 2))
+            end
             local rigs = SignatureVfx.Preview(root)
             local started = os.clock()
             if low then
@@ -152,9 +138,7 @@ function Effects.Play(kind, target, root, mode, itemId, live)
         waitFor(1)
     end
     task.spawn(play)
-    return function()
-        for _, tween in tweens do tween:Cancel() end
-    end
+    return function() end
 end
 
 return table.freeze(Effects)

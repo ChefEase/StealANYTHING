@@ -80,9 +80,12 @@ function HeistAudioController.Start(player: Player, music: any)
 
     local feedback = ReplicatedStorage.Network:WaitForChild("Feedback") :: RemoteEvent
     feedback.OnClientEvent:Connect(function(payload)
-        if type(payload) ~= "table" or payload.kind ~= "Success"
-            or type(payload.cueId) ~= "string" then return end
-        if payload.cue == "DeliveredDisplayed" then
+        if type(payload) ~= "table" or type(payload.cueId) ~= "string" then return end
+        if payload.cue == "CarryDropped" and payload.kind == "Info" then
+            play("Drop", payload.cueId)
+        elseif payload.kind ~= "Success" then
+            return
+        elseif payload.cue == "DeliveredDisplayed" then
             play("Displayed", payload.cueId)
         elseif payload.cue == "DeliveredStored" then
             play("Stored", payload.cueId)

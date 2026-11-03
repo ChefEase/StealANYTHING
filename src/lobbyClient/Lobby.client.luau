@@ -2,7 +2,10 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SocialService = game:GetService("SocialService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
 local player = Players.LocalPlayer
+local cueConfig = require(ReplicatedStorage.Shared.HeistAudioConfig)
 require(ReplicatedStorage.Shared.WardrobeUi).Start(player, nil, false)
 require(ReplicatedStorage.Shared.HeistMusic).Start(player, "Lobby", nil)
 require(ReplicatedStorage.Shared.UiFeedback).Start(player)
@@ -16,6 +19,64 @@ local playPrompt = promptAnchor and promptAnchor:WaitForChild("PlayHeistPrompt",
 if not playPrompt or not playPrompt:IsA("ProximityPrompt") then
     warn("[Steal Anything Lobby] Deployment prompt was not built")
     return
+end
+
+local lastCueCategory: string? = nil
+local firstStatus = true
+local function deploymentCue(category: string)
+    if not promptAnchor or not promptAnchor:IsA("BasePart") then return end
+    local color = if category == "Deployment" then Color3.fromRGB(255, 207, 115)
+        elseif category == "QueueFailed" then Color3.fromRGB(247, 118, 77)
+        else Color3.fromRGB(74, 235, 194)
+    local low = player:GetAttribute("LowEffects") == true
+    local reduced = player:GetAttribute("ReduceMotion") == true
+    local count = if low then 4 else 8
+    for index = 1, count do
+        local angle = (index - 1) * math.pi * 2 / count
+        local segment = Instance.new("Part")
+        segment.Name = "LocalVaultResponse"
+        segment.Size = Vector3.new(if low then .55 else .8, .065, .14)
+        segment.Material = Enum.Material.Neon
+        segment.Color = color
+        segment.Transparency = .2
+        segment.Anchored = true
+        segment.CanCollide = false
+        segment.CanTouch = false
+        segment.CanQuery = false
+        -- The deployment vault is a vertical door, so its response follows
+        -- the door face rather than drawing a ring on the floor by the prompt.
+        segment.CFrame = CFrame.new(Vector3.new(
+            promptAnchor.Position.X + math.cos(angle) * 4.7,
+            promptAnchor.Position.Y + 2 + math.sin(angle) * 4.7,
+            promptAnchor.Position.Z - 0.6))
+            * CFrame.Angles(0, 0, angle + math.pi / 2)
+        segment.Parent = workspace
+        if reduced then
+            Debris:AddItem(segment, .18)
+        else
+            TweenService:Create(segment, TweenInfo.new(.52, Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out), {
+                CFrame = segment.CFrame + Vector3.new(0, .2, 0),
+                Transparency = 1,
+            }):Play()
+            Debris:AddItem(segment, .65)
+        end
+    end
+    local spec = cueConfig.Effects[category]
+    if spec and spec.SoundId ~= "" then
+        local sound = Instance.new("Sound")
+        sound.Name = "LocalVaultCue"
+        sound.SoundId = spec.SoundId
+        local master = player:GetAttribute("MasterVolume")
+        local effects = player:GetAttribute("EffectsVolume")
+        sound.Volume = spec.Volume
+            * (if type(master) == "number" then math.clamp(master, 0, 1) else 1)
+            * (if type(effects) == "number" then math.clamp(effects, 0, 1) else 1)
+        sound.RollOffMaxDistance = 35
+        sound.Parent = promptAnchor
+        sound:Play()
+        Debris:AddItem(sound, 3)
+    end
 end
 
 local screen = Instance.new("ScreenGui")
@@ -188,6 +249,17 @@ local function update(message: any, waiting: any)
         or string.find(message, "NEEDS CONFIGURATION") ~= nil
         or string.find(message, "STUDIO PREVIEW - PLAY PRESSED") ~= nil
     )
+    local category = if deploying then "Deployment"
+        elseif problem and not string.find(message, "STUDIO PREVIEW") then "QueueFailed"
+        elseif enabled and type(message) == "string" and (
+            string.find(message, "FINDING") or string.find(message, "WAITING")) then "QueueAccepted"
+        else nil
+    if firstStatus then
+        firstStatus = false
+    elseif category and category ~= lastCueCategory then
+        deploymentCue(category)
+    end
+    lastCueCategory = category
     if enabled or problem then startRequested = false end
     playPrompt.Enabled = (not enabled and not startRequested) or problem
     play.Active = not enabled and not deploying

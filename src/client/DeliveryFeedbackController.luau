@@ -2,7 +2,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Debris = game:GetService("Debris")
+local ReceivingPlatformVfx = require(ReplicatedStorage.Shared.ReceivingPlatformVfx)
 
 local Theme = require(script.Parent.HudTheme)
 
@@ -12,6 +12,10 @@ local SAVING = Color3.fromRGB(255, 207, 115)
 function DeliveryFeedbackController.Start(player: Player)
     local zone: BasePart? = nil
     local highlight: Highlight? = nil
+    local platformRoot: Folder? = nil
+    local platformController: any = nil
+    local platformState = "Idle"
+    local wasSaving = false
     local savingSign: BillboardGui? = nil
     local arrivalSign: BillboardGui? = nil
     local confirmedUntil = 0
@@ -45,6 +49,26 @@ function DeliveryFeedbackController.Start(player: Player)
     local function clear()
         clearNear()
         if arrivalSign then arrivalSign:Destroy(); arrivalSign = nil end
+        if platformController then platformController:Destroy(); platformController = nil end
+        platformRoot = nil
+        platformState = "Idle"
+        wasSaving = false
+    end
+
+    local function setPlatform(target: BasePart, state: string)
+        if not platformController or not platformRoot or not platformRoot.Parent then
+            platformRoot = Instance.new("Folder")
+            platformRoot.Name = "LocalReceivingPlatform"
+            platformRoot.Parent = workspace
+            local mode = if player:GetAttribute("ReduceMotion") == true then "Reduced motion"
+                elseif player:GetAttribute("LowEffects") == true then "Low effects" else "Normal"
+            platformController = ReceivingPlatformVfx.Create(platformRoot, target, mode)
+            platformState = "Idle"
+        end
+        if platformState ~= state then
+            platformState = state
+            platformController:SetState(state)
+        end
     end
 
     local feedback = ReplicatedStorage.Network:WaitForChild("Feedback") :: RemoteEvent
@@ -58,29 +82,9 @@ function DeliveryFeedbackController.Start(player: Player)
         lastConfirmedCueId = payload.cueId
         confirmedUntil = os.clock() + 1.2
         confirmedColor = if cue == "DeliveredStored" then SAVING else Theme.Accent
-        if player:GetAttribute("ReduceMotion") == true then return end
         local target = findZone()
         if target == nil then return end
-        local mount = Instance.new("Attachment")
-        mount.Name = "LocalDeliveryResultBurst"
-        mount.Position = Vector3.new(0, 1.2, 0)
-        mount.Parent = target
-        local particles = Instance.new("ParticleEmitter")
-        particles.Name = "SavedExhibitMotifs"
-        particles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-        particles.Color = ColorSequence.new(confirmedColor)
-        particles.LightEmission = 0.55
-        particles.Lifetime = NumberRange.new(0.45, 0.75)
-        particles.Speed = NumberRange.new(1.5, 3.5)
-        particles.SpreadAngle = Vector2.new(90, 90)
-        particles.Size = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.35),
-            NumberSequenceKeypoint.new(1, 0),
-        })
-        particles.Rate = 0
-        particles.Parent = mount
-        particles:Emit(if player:GetAttribute("LowEffects") == true then 3 else 11)
-        Debris:AddItem(mount, 1)
+        setPlatform(target, "Success")
     end)
 
     RunService.Heartbeat:Connect(function()
@@ -98,6 +102,23 @@ function DeliveryFeedbackController.Start(player: Player)
         local near = distance <= 27
         local carrying = type(player:GetAttribute("CarryId")) == "string"
         local saving = player:GetAttribute("DeliveryInProgress") == true
+        if near and (carrying or now < confirmedUntil) then
+            if now < confirmedUntil then
+                setPlatform(target, "Success")
+            elseif saving then
+                setPlatform(target, "Processing")
+            elseif wasSaving then
+                setPlatform(target, "Cancel")
+            else
+                setPlatform(target, "Approach")
+            end
+        elseif platformController then
+            platformController:Destroy()
+            platformController = nil
+            platformRoot = nil
+            platformState = "Idle"
+        end
+        wasSaving = saving
         if carrying and distance <= 70 and arrivalSign == nil then
             local sign = Instance.new("BillboardGui")
             sign.Name = "LocalReceivingDestination"

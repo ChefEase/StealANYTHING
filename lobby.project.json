@@ -1,6 +1,6 @@
 {
   "name": "Steal Anything Lobby",
-  "servePlaceIds": [105126787891032],
+  "servePlaceIds": [0, 105126787891032],
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
